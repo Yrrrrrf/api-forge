@@ -1,0 +1,13 @@
+name: api
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - fastapi
+  - sqlalchemy
+  - pydantic
+  - psycopg2
+  - ca-certificates
+  - openssl
+prefix: C:\Users\fire\mambaforge\envs\api

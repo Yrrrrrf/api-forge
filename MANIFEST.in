@@ -1,0 +1,3 @@
+
+include docs/*
+include docs/images/pkg.svg
