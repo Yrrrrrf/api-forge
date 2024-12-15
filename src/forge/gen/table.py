@@ -1,9 +1,11 @@
 from typing import Dict, List, Optional, Type, Any
+from fastapi import APIRouter
 from pydantic import BaseModel, Field, ConfigDict, create_model
 from sqlalchemy import MetaData, Engine, Table, inspect
 from sqlalchemy.orm import DeclarativeBase, declared_attr
 from sqlalchemy.ext.declarative import declared_attr
 
+from forge.gen.crud import CRUD
 from forge.tools.sql_mapping import get_eq_type
 
 from typing import *
@@ -65,3 +67,34 @@ def load_tables(
                 model_cache[f"{table.schema}.{table.name}"] = (table, (pydantic_model, sqlalchemy_model))
     
     return model_cache
+
+
+def gen_table_crud(
+    table_data: Tuple[Table, Tuple[Type[BaseModel], Type[BaseSQLModel]]],
+    router: APIRouter,
+    db_dependency: Callable,
+) -> None:
+    """
+    Generate CRUD routes for a database table.
+    
+    Args:
+        table_data: Tuple containing (Table, (PydanticModel, SQLAlchemyModel))
+        router: FastAPI router instance
+        db_dependency: Database session dependency
+        tags: Optional list of tags for the routes
+        prefix: Optional prefix for the routes
+    """
+    table, (pydantic_model, sqlalchemy_model) = table_data
+    # Initialize CRUD handler
+    crud_handler = CRUD(
+        table=table,
+        pydantic_model=pydantic_model,
+        sqlalchemy_model=sqlalchemy_model,
+        router=router,
+        db_dependency=db_dependency,
+        tags=[table.schema],
+        prefix=f"/{table.schema}"
+    )
+    
+    # Generate all CRUD routes
+    crud_handler.generate_all()

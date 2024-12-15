@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from forge.core.logging import *
-from forge.gen.handlers.crud import CRUD
+from forge.gen.crud import CRUD
 from forge.tools.sql_mapping import ArrayType, get_eq_type
 
 # ? Metadata for some function ---------------------------------------------------
@@ -35,7 +35,6 @@ class FunctionType(str, Enum):
     SET_RETURNING = "set"
     AGGREGATE = "aggregate"
     WINDOW = "window"
-
 
 class FunctionParameter(BaseModel):
     name: str

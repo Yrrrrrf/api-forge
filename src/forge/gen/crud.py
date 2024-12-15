@@ -11,7 +11,6 @@ from enum import Enum as PyEnum
 
 class CRUD:
     """Class to handle CRUD operations with FastAPI routes."""
-    
     def __init__(
         self,
         table: Table,

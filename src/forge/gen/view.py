@@ -1,6 +1,9 @@
-from typing import Dict, List, Optional, Type, Any, Tuple
+import json
+from typing import Callable, Dict, List, Optional, Type, Any, Tuple
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, ConfigDict, create_model
 from sqlalchemy import Table, MetaData, Engine, inspect, text
+from sqlalchemy.orm import Session
 
 from forge.tools.sql_mapping import get_eq_type, JSONBType, ArrayType
 
@@ -77,7 +80,6 @@ def create_view_model(
 
     return ViewQueryParamsModel, ViwsResponseModel
 
-
 def load_views(
     metadata: MetaData,
     engine: Engine,
@@ -105,3 +107,112 @@ def load_views(
                 view_cache[f"{schema}.{table.name}"] = (table, (query_model, result_model))
     
     return view_cache
+
+def gen_view_route(
+    table_data: Tuple[Table, Tuple[Type[BaseModel], Type[BaseModel]]],
+    router: APIRouter,
+    db_dependency: Callable,
+) -> None:
+    """
+    Generate FastAPI route for a database view.
+    
+    Args:
+        table_data: Tuple containing (Table, (QueryModel, ResponseModel))
+        router: FastAPI router instance
+        db_dependency: Database session dependency
+    """
+    table, (query_model, response_model) = table_data
+    schema = table.schema
+    view_name = table.name
+    
+    @router.get(
+        f"/{view_name}",
+        response_model=List[response_model],
+        tags=[f"{schema.upper()} Views"],
+        summary=f"Get {view_name} view data",
+        description=f"Retrieve records from the {view_name} view with optional filtering"
+    )
+    async def get_view_data(
+        db: Session = Depends(db_dependency),
+        filters: query_model = Depends(),
+    ) -> List[response_model]:
+        # Build query with filters
+        query_parts = [f'SELECT * FROM {schema}.{table.name}']
+        params = {}
+        
+        # Handle filters
+        filter_conditions = []
+        for field_name, value in filters.model_dump(exclude_unset=True).items():
+            if value is not None:
+                column = getattr(table.c, field_name)
+                if isinstance(get_eq_type(str(column.type)), (JSONBType, ArrayType)):
+                    # Skip JSONB and array filtering for now
+                    continue
+                else:
+                    param_name = f"param_{field_name}"
+                    filter_conditions.append(f"{field_name} = :{param_name}")
+                    params[param_name] = value
+
+        if filter_conditions:
+            query_parts.append("WHERE " + " AND ".join(filter_conditions))
+
+        # Execute query
+        result = db.execute(text(" ".join(query_parts)), params)
+        
+        # Process results
+        processed_records = []
+        for row in result:
+            record_dict = dict(row._mapping)
+            processed_record = {}
+            
+            # Process each column value
+            for column_name, value in record_dict.items():
+                column = table.c[column_name]
+                field_type = get_eq_type(str(column.type), value, nullable=column.nullable)
+
+                if isinstance(field_type, JSONBType):
+                    if value is not None:
+                        # Parse JSONB data
+                        if isinstance(value, str):
+                            json_data = json.loads(value)
+                        else:
+                            json_data = value
+                        processed_record[column_name] = json_data
+                    else:
+                        processed_record[column_name] = None
+                elif isinstance(field_type, ArrayType):
+                    if value is not None:
+                        if isinstance(value, str):
+                            cleaned_value = value.strip('{}').split(',')
+                            processed_record[column_name] = [
+                                field_type.item_type(item.strip('"')) 
+                                for item in cleaned_value 
+                                if item.strip()
+                            ]
+                        elif isinstance(value, list):
+                            processed_record[column_name] = [
+                                field_type.item_type(item) 
+                                for item in value 
+                                if item is not None
+                            ]
+                        else:
+                            processed_record[column_name] = value
+                    else:
+                        processed_record[column_name] = []
+                else:
+                    processed_record[column_name] = value
+            
+            processed_records.append(processed_record)
+
+        # Validate records using the response model
+        validated_records = []
+        for record in processed_records:
+            try:
+                validated_record = response_model.model_validate(record)
+                validated_records.append(validated_record)
+            except Exception as e:
+                print(f"Validation error for record in {table.name}: {record}")
+                print(f"Error: {str(e)}")
+                raise
+
+        return validated_records

@@ -1,6 +1,8 @@
 from forge import *
 import uvicorn
 
+from forge.gen.table import gen_table_crud
+from forge.gen.view import gen_view_route
 from forge.tools.db import *
 import os
 
@@ -34,9 +36,7 @@ db_manager = DBForge(config=DBConfig(
 ))
 db_manager.log_metadata_stats()
 
-# app.include_router(get_metadata_router(db_manager.metadata))  # * add the metadata router
-
-# # ? Model Forge ---------------------------------------------------------------------------------
+# ? Model Forge ---------------------------------------------------------------------------------
 model_forge = ModelForge(
     db_manager=db_manager,
     include_schemas=[
@@ -60,21 +60,25 @@ model_forge = ModelForge(
 # # [print(f"{bold('Functions:')} {enum}") for enum in model_forge.fn_cache]
 
 # ? Generate the Pydantic models
-r = APIRouter(
-    prefix="/models",
-    tags=["models"],
-    responses={404: {"description": "Not found"}},
-)
 
+r_tables = APIRouter()
+for _, table_tuple in model_forge.model_cache.items():
+    gen_table_crud(table_tuple, r_tables, db_manager.get_db)
+
+r_view = APIRouter(prefix="/view")
+for view_tuple in model_forge.view_cache.values():
+    gen_view_route(view_tuple, r_view, db_manager.get_db)
+
+r_fn = APIRouter(prefix="/fn")
 for _, fn_metadata in model_forge.fn_cache.items(): 
-    gen_fn_route(
-        fn_metadata,
-        r,
-        db_manager.get_db,
-    )
+    gen_fn_route(fn_metadata, r_fn, db_manager.get_db)
 
 # add the router to the app
-app.include_router(r)
+app.include_router(r_tables)
+# app.include_router(r_fn)
+# app.include_router(r_view)
+
+
 
 
 # * Same as just calling it as a module
