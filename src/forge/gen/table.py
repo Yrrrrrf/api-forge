@@ -92,7 +92,6 @@ def gen_table_crud(
         sqlalchemy_model=sqlalchemy_model,
         router=router,
         db_dependency=db_dependency,
-        tags=[table.schema],
         prefix=f"/{table.schema}"
     )
     

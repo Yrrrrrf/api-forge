@@ -79,10 +79,9 @@ class ModelForge(BaseModel):
             db_dependency=self.db_manager.get_db,
             include_schemas=self.include_schemas
         )
-
-        [print(f"{cyan('Function:')} {bold(name)}") for name in fn]
-        [print(f"{cyan('Procedure:')} {bold(name)}") for name in proc]
-        [print(f"{cyan('Trigger:')} {bold(name)}") for name in trig]
+        # [print(f"{cyan('Function:')} {bold(name)}") for name in fn]
+        # [print(f"{cyan('Procedure:')} {bold(name)}") for name in proc]
+        # [print(f"{cyan('Trigger:')} {bold(name)}") for name in trig]
 
         self.fn_cache = fn
         self.proc_cache = proc

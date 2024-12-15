@@ -128,7 +128,7 @@ def gen_view_route(
     @router.get(
         f"/{view_name}",
         response_model=List[response_model],
-        tags=[f"{schema.upper()} Views"],
+        # tags=[f"{schema.upper()} Views"],
         summary=f"Get {view_name} view data",
         description=f"Retrieve records from the {view_name} view with optional filtering"
     )

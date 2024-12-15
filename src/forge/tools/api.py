@@ -1,85 +1,74 @@
-"""
-APIForge: Enhanced API route generation with proper model handling.
-Integrates with ModelForge for model management and route generation.
-"""
 from typing import Dict, List, Optional
-from enum import Enum
-# import session
-from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter
 from pydantic import BaseModel, Field, ConfigDict
-from sqlalchemy import Table, text
-from pydantic.main import create_model
-
-# from forge.gen.view import register_view_routes
-
-class RouteType(str, Enum):
-    """Available route types."""
-    CREATE = "create"
-    READ = "read"
-    UPDATE = "update"
-    DELETE = "delete"
+from sqlalchemy import Table
+from forge.gen.view import gen_view_route
+from forge.gen.table import gen_table_crud
+from forge.gen.fn import gen_fn_route
+from forge.core.logging import bold, gray, cyan, red
+from forge.tools.model import ModelForge
 
 class APIForge(BaseModel):
     """
     Manages API route generation and CRUD operations.
-    Works in conjunction with ModelForge for model handling.
+    Works in conjunction with ModelForge for model management.
     """
-    model_forge: ModelForge  # * ModelForge instance for model management
+    model_forge: ModelForge = Field(..., title="Model Forge")
     routers: Dict[str, APIRouter] = Field(default_factory=dict)
-
+    
     model_config = ConfigDict(arbitrary_types_allowed=True)
-
+    
     def __init__(self, **data):
         super().__init__(**data)
-        # * Initialize the routers for each schema
+        self._init_routers()
+
+    def _init_routers(self) -> None:
+        """Initialize routers for each schema and route type."""
         for schema in sorted(self.model_forge.include_schemas):
+            # Main schema router
             self.routers[schema] = APIRouter(prefix=f"/{schema}", tags=[schema.upper()])
             self.routers[f"{schema}_views"] = APIRouter(prefix=f"/{schema}", tags=[f"{schema.upper()} Views"])
+            self.routers[f"{schema}_fn"] = APIRouter(prefix=f"/{schema}", tags=[f"{schema.upper()} Functions"])
 
     def gen_table_routes(self) -> None:
-        """Generate CRUD routes for all tables in the model cache."""
-        print(f"\n{bold('[Generating Routes]')}")
-        for table in self.model_forge.model_cache.keys():
-            self.gen_table_crud(*table.split("."))
-
-    def gen_table_crud(self, schema: str,  table_name: str) -> None:
-        """Generate the curd routes for a certain Table..."""
-        full_table_name = f"{schema}.{table_name}"
-        if full_table_name not in self.model_forge.model_cache:
-            raise KeyError(f"No models found for {full_table_name}")
-
-        pydantic_model, sqlalchemy_model = self.model_forge.model_cache[full_table_name]
-        CRUD(
-            table=self.model_forge.db_manager.metadata.tables[full_table_name],
-            pydantic_model=pydantic_model,
-            sqlalchemy_model=sqlalchemy_model,
-            router=self.routers[schema],
-            db_dependency=self.model_forge.db_manager.get_db,
-            tags=[schema.upper()]
-        ).generate_all()
-
-        print(f"\t{gray('gen crud for:')} {schema}.{bold(cyan(table_name))}")
-
-    def gen_view_routes(self) -> None:
-        """Generate routes for all views in the view cache."""
-        print(f"\n{bold('[Generating View Routes]')}")
-        for view_name, view_table in self.model_forge.view_cache.items():
-            self.gen_view_route(view_name, view_table)
-
-    def gen_view_route(self, view_name: str, view_table: Table) -> None:
-        """Generate the GET route for a View with proper array type handling."""
-        schema = view_table.schema
-        print(f"\t{gray('gen view for:')} {schema}.{bold(cyan(view_name))}")
-        try:
-            generate_view_routes(
-                view_table=view_table,
-                schema=schema,
-                # TODO: Decide on a better way to handle this... (maybe a config?)
-                # router=self.routers[schema],
-                router=self.routers[f"{schema}_views"],  # * Use the views router
+        """Generate CRUD routes for all tables."""
+        print(f"\n{bold('[Generating Table Routes]')}")
+        
+        for table_key, table_data in self.model_forge.model_cache.items():
+            schema, table_name = table_key.split('.')
+            print(f"\t{gray('gen crud for:')} {schema}.{bold(cyan(table_name))}")
+            gen_table_crud(
+                table_data=table_data,
+                router=self.routers[schema],
                 db_dependency=self.model_forge.db_manager.get_db,
-                get_eq_type=get_eq_type
             )
-        except Exception as e:
-            print(f"\t{red(f'Error generating view route for {view_name}: {str(e)}')}")
+    
+    def gen_view_routes(self) -> None:
+        """Generate routes for all views."""
+        print(f"\n{bold('[Generating View Routes]')}")
+        
+        for view_key, view_data in self.model_forge.view_cache.items():
+            schema, view_name = view_key.split('.')
+            print(f"\t{gray('gen view for:')} {schema}.{bold(cyan(view_name))}")
+            gen_view_route(
+                table_data=view_data,
+                router=self.routers[f"{schema}_views"],
+                db_dependency=self.model_forge.db_manager.get_db
+            )
+    
+    def gen_fn_routes(self) -> None:
+        """Generate routes for all functions."""
+        print(f"\n{bold('[Generating Function Routes]')}")
+        
+        for fn_key, fn_metadata in self.model_forge.fn_cache.items():
+            schema, fn_name = fn_key.split('.')
+            print(f"\t{gray('gen fn for:')} {schema}.{bold(cyan(fn_name))}")
+            gen_fn_route(
+                fn_metadata=fn_metadata,
+                router=self.routers[f"{schema}_fn"],
+                db_dependency=self.model_forge.db_manager.get_db
+            )
+    
+    def get_routers(self) -> List[APIRouter]:
+        """Return list of all routers."""
+        return list(self.routers.values())

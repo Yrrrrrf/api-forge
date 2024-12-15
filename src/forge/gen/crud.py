@@ -18,7 +18,6 @@ class CRUD:
         sqlalchemy_model: Type[Any],
         router: APIRouter,
         db_dependency: Callable,
-        tags: Optional[List[Union[str, Enum]]] = None,
         prefix: str = ""
     ):
         """Initialize CRUD handler with common parameters."""
@@ -27,7 +26,6 @@ class CRUD:
         self.sqlalchemy_model = sqlalchemy_model
         self.router = router
         self.db_dependency = db_dependency
-        self.tags = tags
         self.prefix = prefix
 
         # Create query params model once for reuse
@@ -66,7 +64,6 @@ class CRUD:
         @self.router.post(
             self._get_route_path(),
             response_model=self.pydantic_model,
-            tags=self.tags,
             summary=f"Create {self.table.name}",
             description=f"Create a new {self.table.name} record"
         )
@@ -100,7 +97,6 @@ class CRUD:
         @self.router.get(
             self._get_route_path(),
             response_model=List[self.pydantic_model],
-            tags=self.tags,
             summary=f"Get {self.table.name} resources",
             description=f"Retrieve {self.table.name} records with optional filtering"
         )
@@ -137,7 +133,6 @@ class CRUD:
         @self.router.put(
             self._get_route_path(),
             response_model=Dict[str, Any],
-            tags=self.tags,
             summary=f"Update {self.table.name}",
             description=f"Update {self.table.name} records that match the filter criteria"
         )
@@ -188,7 +183,6 @@ class CRUD:
         @self.router.delete(
             self._get_route_path(),
             response_model=Dict[str, Any],
-            tags=self.tags,
             summary=f"Delete {self.table.name}",
             description=f"Delete {self.table.name} records that match the filter criteria"
         )

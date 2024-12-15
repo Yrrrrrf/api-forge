@@ -328,9 +328,8 @@ def gen_fn_route(
 
     if fn_metadata.object_type == PostgresObjectType.PROCEDURE:
         @router.post(
-            f"/{fn_metadata.name}",
+            f"proc/{fn_metadata.name}",
             response_model=None,
-            tags=[f"{fn_metadata.schema.upper()} Procedures"],
             summary=f"Execute {fn_metadata.name} procedure",
             description=fn_metadata.description or f"Execute the {fn_metadata.name} procedure"
         )
@@ -344,12 +343,10 @@ def gen_fn_route(
                 fn_name=fn_metadata.name,
                 schema=fn_metadata.schema
             )
-
     else:  # Function route
         @router.post(
-            f"/{fn_metadata.name}",
+            f"fn/{fn_metadata.name}",
             response_model=List[FunctionOutputModel] if is_set else FunctionOutputModel,
-            tags=[f"{fn_metadata.schema.upper()} Functions"],
             summary=f"Execute {fn_metadata.name} function",
             description=fn_metadata.description or f"Execute the {fn_metadata.name} function"
         )

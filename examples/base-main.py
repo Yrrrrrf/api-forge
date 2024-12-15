@@ -1,13 +1,11 @@
 from forge import *
 import uvicorn
 
-from forge.gen.table import gen_table_crud
-from forge.gen.view import gen_view_route
+from forge.tools.api import APIForge
 from forge.tools.db import *
 import os
 
 from forge.tools.model import ModelForge
-from forge.gen.fn import gen_fn_route
 
 
 # ? Main Forge -----------------------------------------------------------------------------------
@@ -59,26 +57,13 @@ model_forge = ModelForge(
 # # todo: Print the 'Functions' as well
 # # [print(f"{bold('Functions:')} {enum}") for enum in model_forge.fn_cache]
 
-# ? Generate the Pydantic models
 
-r_tables = APIRouter()
-for _, table_tuple in model_forge.model_cache.items():
-    gen_table_crud(table_tuple, r_tables, db_manager.get_db)
+api_forge = APIForge(model_forge=model_forge)
 
-r_view = APIRouter(prefix="/view")
-for view_tuple in model_forge.view_cache.values():
-    gen_view_route(view_tuple, r_view, db_manager.get_db)
-
-r_fn = APIRouter(prefix="/fn")
-for _, fn_metadata in model_forge.fn_cache.items(): 
-    gen_fn_route(fn_metadata, r_fn, db_manager.get_db)
-
-# add the router to the app
-app.include_router(r_tables)
-# app.include_router(r_fn)
-# app.include_router(r_view)
-
-
+# ? Generate Routes -----------------------------------------------------------------------------
+api_forge.gen_table_routes()
+api_forge.gen_view_routes()
+api_forge.gen_fn_routes()
 
 
 # * Same as just calling it as a module
