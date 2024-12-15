@@ -43,7 +43,7 @@ dependencies:
   - pydantic=2.10.3=pyh3cfb1c2_0
   - pydantic-core=2.27.1=py312h2615798_0
   - pygments=2.18.0=pyhd8ed1ab_1
-  - python=3.12.8=h3f84c4b_1_cpython
+  - python=3.11
   - python-dotenv=1.0.1=pyhd8ed1ab_1
   - python-multipart=0.0.19=pyhff2d567_1
   - python_abi=3.12=5_cp312
