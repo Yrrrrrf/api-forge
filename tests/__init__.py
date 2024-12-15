@@ -1,1 +1,2 @@
-# todo: Write some test cases for the project...
+
+# todo: Add some tests using SQLite (in-memory) database

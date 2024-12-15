@@ -1,162 +1,118 @@
-# CRUD FORGE
+# API Forge
 
-[![PyPI version](https://badge.fury.io/py/crud-forge.svg)](https://badge.fury.io/py/crud-forge)
-[![Documentation Status](https://readthedocs.org/projects/crud-forge/badge/?version=latest)](https://crud-forge.readthedocs.io/en/latest/?badge=latest)
+[![PyPI version](https://badge.fury.io/py/api-forge.svg)](https://badge.fury.io/py/api-forge)
+[![Documentation Status](https://readthedocs.org/projects/api-forge/badge/?version=latest)](https://api-forge.readthedocs.io/en/latest/?badge=latest)
 
 ## Overview
 
-Python library designed onntop of [fast-api](https://fastapi.tiangolo.com/) to **handle any db model & route** responsabilities.
+API Forge is a Python library built on top of [FastAPI](https://fastapi.tiangolo.com/) that streamlines database model management and API route generation. It provides a comprehensive type system for managing API responses, reducing boilerplate code, and ensuring type safety throughout your application.
 
-It provides a robust type system for managing API responses, reducing boilerplate code, and ensuring type safety throughout your application.
-It automatically generates API routes, database models, and even provides metadata endpoints, significantly reducing development time and boilerplate code.
+The library automatically generates API routes, database models, and metadata endpoints, significantly reducing development time while maintaining code quality and type safety.
 
 ## Key Features
 
-- **Automatic Model Generation**: Instantly create SQLAlchemy and Pydantic models from your existing database schema.
-- **Dynamic CRUD Route Generation**: Automatically generate FastAPI routes for all your models.
-- **Metadata API**: Built-in routes to explore your database structure programmatically.
-- **Flexible Database Connection Management**: Easy setup for various database types including PostgreSQL, MySQL, and SQLite.
-- **Customizable Route Generation**: Tailor the generated routes to your specific needs.
-- **Advanced Filtering**: Built-in filtering capabilities for GET requests.
-- **Comprehensive Error Handling**: Robust error management out of the box.
-- **Type Hinting**: Full type hint support for better IDE integration and code quality.
+- **Automatic Model Generation**: Creates SQLAlchemy and Pydantic models from your existing database schema
+- **Dynamic Route Generation**: Automatically generates FastAPI routes for tables, views, and functions
+- **Database Function Support**: Native support for PostgreSQL functions, procedures, and triggers
+- **Metadata API**: Built-in routes to explore your database structure programmatically
+- **Flexible Database Connection**: Support for PostgreSQL, MySQL, and SQLite with connection pooling
+- **Advanced Type System**: Comprehensive type handling including JSONB and Array types
+- **Schema-based Organization**: Route organization based on database schemas
+- **Full Type Hinting**: Complete type hint support for better IDE integration
 
 ## Installation
 
-Install CRUD FORGE using pip:
+Install API Forge using pip:
 
 ```bash
-pip install api-forge==0.0.1
+pip install api-forge
 ```
 
 ## Quick Start
 
-Here's how you can leverage CRUD FORGE's automatic generators:
+Here's how to quickly set up an API with API Forge:
 
 ```python
-from fastapi import FastAPI
-from forge.db import DBForge
-from forge.models import generate_models_from_metadata
-from forge.crud import generate_crud
-from forge.routes import generate_metadata_routes, generate_default_routes
+from forge import *  # import mod prelude (main structures)
 
-# Set up FastAPI app and database
-app = FastAPI()
-db_manager = DBForge(db_url="postgresql://user:password@localhost/dbname")
-
-metadata = db_manager.metadata  # get the metadata from the database
-
-# recieve the fastapi app to generate default routes
-generate_default_routes(app)
-
-# Generate metadata routes
-app.include_router(generate_metadata_routes(metadata, db_manager.get_db))
-
-# Automatically generate models from database metadata
-models = generate_models_from_metadata(metadata)
-
-# Generate CRUD routes for all models
-for schema, models in models.items():
-    for table_name, (sqlalchemy_model, pydantic_model) in models.items():
-        generate_crud(sqlalchemy_model, pydantic_model, app, db_manager.get_db)
-
-# Run the app
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-```
-
-This example automatically generates models and CRUD routes for your entire database schema!
-
-## Package Structure
-
-![CRUD FORGE MAIN STRUCTURE](docs/images/pkg.svg)
-
-## Detailed Usage
-
-### Database Connection
-
-Use the `DBForge` to set up your database connection:
-
-```python
-from forge.db import DBForge
-
-# Using a database URL
-db_manager = DBForge(db_url="postgresql://user:password@localhost/dbname")
-
-# Or using individual parameters
-db_manager = DBForge(
-    db_type="postgresql",
-    user="user",
-    password="password",
-    host="localhost",
-    database="dbname"
+# Initialize the main Forge application
+app_forge = Forge(
+    info=ForgeInfo(
+        PROJECT_NAME="MyAPI",
+        VERSION="1.0.0"
+    )
 )
+app = app_forge.app
+
+# Configure database connection
+db_manager = DBForge(
+    config=DBConfig(
+        db_type="postgresql",
+        driver_type="sync",
+        database="mydb",
+        user="user",
+        password="password",
+        host="localhost",
+        port=5432,
+        pool_config=PoolConfig(
+            pool_size=5,
+            max_overflow=10,
+            pool_timeout=30,
+            pool_pre_ping=True
+        )
+    )
+)
+
+# Initialize model management
+model_forge = ModelForge(
+    db_manager=db_manager,
+    include_schemas=['public', 'app']
+)
+
+# Set up API routes
+api_forge = APIForge(model_forge=model_forge)
+
+# Generate all routes
+api_forge.gen_table_routes()  # CRUD routes for tables
+api_forge.gen_view_routes()   # Read routes for views
+api_forge.gen_fn_routes()     # Routes for database functions
 ```
-
-### Automatic Model Generation
-
-Use `generate_models_from_metadata` to automatically create models:
-
+Then run the application using Uvicorn:
+```bash
+uvicorn myapi:app --reload
+```
+Or run the script directly:
 ```python
-from forge.models import generate_models_from_metadata
-
-models = generate_models_from_metadata(db_manager.metadata)
+if __name__ == "__main__":
+    import uvicorn  # import the Uvicorn server (ASGI)
+    uvicorn.run(
+        app=app,
+        host=app_forge.uvicorn_config.host,
+        port=app_forge.uvicorn_config.port,
+        reload=app_forge.uvicorn_config.reload
+    )
 ```
 
-### Dynamic CRUD Route Generation
+## Generated Routes
 
-Generate CRUD routes for all your models dynamically:
+API Forge automatically generates the following types of routes:
 
-```python
-from forge.crud import generate_crud
+### Table Routes
 
-for schema, models in models.items():
-    for table_name, (sqlalchemy_model, pydantic_model) in models.items():
-        generate_crud(sqlalchemy_model, pydantic_model, app, db_manager.get_db, tags=[f"{schema}_{table_name}"])
-```
+- `POST /{schema}/{table}` - Create
+- `GET /{schema}/{table}` - Read (with filtering)
+- `PUT /{schema}/{table}` - Update
+- `DELETE /{schema}/{table}` - Delete
 
-### Metadata API
+### View Routes
 
-CRUD FORGE includes built-in routes to explore your database structure:
+- `GET /{schema}/{view}` - Read with optional filtering
 
-```python
-from forge.routes import generate_metadata_routes
+### Function Routes
 
-metadata_router = generate_metadata_routes(db_manager.metadata, db_manager.get_db)
-app.include_router(metadata_router)
-```
-
-This will create the following endpoints:
-
-- `GET /dt/schemas`: List all schemas in the database
-- `GET /dt/{schema}/tables`: List all tables in a specific schema
-- `GET /dt/{schema}/{table}/columns`: Get details of columns in a specific table
-
-### Default Routes
-
-CRUD FORGE can generate some default routes for your application:
-
-```python
-from forge.routes import generate_default_routes
-
-generate_default_routes(app)
-```
-
-This will create the following endpoints:
-
-- `GET /`: Root endpoint with basic API information
-- `GET /health`: Health check endpoint
-- `GET /version`: Version information endpoint
-
-## Documentation
-
-For more detailed information about the API and advanced usage, please refer to our [documentation](https://crud-forge.readthedocs.io).
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for more details.
+- `POST /{schema}/fn/{function}` - Execute function
+- `POST /{schema}/proc/{procedure}` - Execute procedure
 
 ## License
 
-CRUD FORGE is released under the MIT License. See the [LICENSE](LICENSE) file for more details.
+API Forge is released under the MIT License. See the [LICENSE](LICENSE) file for details.

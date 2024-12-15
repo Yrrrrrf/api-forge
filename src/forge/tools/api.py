@@ -1,11 +1,10 @@
-from typing import Dict, List, Optional
+from typing import Dict, List
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, ConfigDict
-from sqlalchemy import Table
 from forge.gen.view import gen_view_route
 from forge.gen.table import gen_table_crud
 from forge.gen.fn import gen_fn_route
-from forge.core.logging import bold, gray, cyan, red
+from forge.core.logging import bold, gray, cyan
 from forge.tools.model import ModelForge
 
 class APIForge(BaseModel):

@@ -5,7 +5,7 @@ from sqlalchemy import MetaData, Engine, Table, inspect
 from sqlalchemy.orm import DeclarativeBase, declared_attr
 from sqlalchemy.ext.declarative import declared_attr
 
-from forge.gen.crud import CRUD
+from forge.gen import CRUD
 from forge.tools.sql_mapping import get_eq_type
 
 from typing import *
@@ -68,7 +68,6 @@ def load_tables(
     
     return model_cache
 
-
 def gen_table_crud(
     table_data: Tuple[Table, Tuple[Type[BaseModel], Type[BaseSQLModel]]],
     router: APIRouter,
@@ -85,15 +84,11 @@ def gen_table_crud(
         prefix: Optional prefix for the routes
     """
     table, (pydantic_model, sqlalchemy_model) = table_data
-    # Initialize CRUD handler
-    crud_handler = CRUD(
+    CRUD(
         table=table,
         pydantic_model=pydantic_model,
         sqlalchemy_model=sqlalchemy_model,
         router=router,
         db_dependency=db_dependency,
         prefix=f"/{table.schema}"
-    )
-    
-    # Generate all CRUD routes
-    crud_handler.generate_all()
+    ).generate_all()
