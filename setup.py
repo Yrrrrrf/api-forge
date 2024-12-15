@@ -15,8 +15,7 @@ setup(
     # Package structure
     packages=find_packages(where="src"),  # Find packages in the src directory
     package_dir={"": "src"},            # Root package is in the src directory
-
-    # package_data={"": ["docs/images/*.svg", "crud_forge/forge.py"]},  # Include forge.py
+    # package_data={"": ["docs/images/*.svg"]},  # Include images in the package
 
     install_requires=[  # Add dependencies (install_requires)
         "fastapi>=0.111.0",  # FastAPI framework
@@ -24,7 +23,6 @@ setup(
         "sqlalchemy>=2.0.30",  # ORM for databases
         "psycopg2>=2.9.3",  # pgsql
     ],
-
     extras_require={  # Add development dependencies (extras_require)
         "dev": [  # Dependencies for development
             "pytest>=6.2.5,<7.0.0",  # to run tests
@@ -33,7 +31,6 @@ setup(
             "mypy>=0.910,<1.0",  # static type checking
         ],
     },
-
     # Metadata to display on PyPI
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
