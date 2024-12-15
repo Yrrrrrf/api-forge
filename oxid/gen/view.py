@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from pydantic.main import create_model
 import json
 
-from forge.utils.sql_types import ArrayType, JSONBType
+from forge.tools.sql_mapping import *
 
 class ViewBase(BaseModel):
     """Base class for view models"""
@@ -63,22 +63,6 @@ def generate_view_routes(
             case _:  # * Simple type
                 view_query_fields[column.name] = (Optional[field_type], Field(default=None))
                 response_fields[column.name] = (field_type, Field(default=None))
-
-        # if isinstance(field_type, JSONBType):
-        #     # Create dynamic model for JSONB fields
-        #     model = field_type.get_model(f"{view_table.name}_{column.name}")
-        #     if isinstance(sample_data.get(column.name, []), list):
-        #         view_query_fields[column.name] = (Optional[str], Field(default=None))
-        #         response_fields[column.name] = (List[model], Field(default_factory=list))
-        #     else:
-        #         view_query_fields[column.name] = (Optional[str], Field(default=None))
-        #         response_fields[column.name] = (Optional[model] if nullable else model, Field(default=None))
-        # elif isinstance(field_type, ArrayType):
-        #     view_query_fields[column.name] = (Optional[str], Field(default=None))
-        #     response_fields[column.name] = (List[field_type.item_type], Field(default_factory=list))
-        # else:
-        #     view_query_fields[column.name] = (Optional[field_type], Field(default=None))
-        #     response_fields[column.name] = (field_type, Field(default=None))
 
     # Create models with proper base classes
     ViewQueryParams = create_model(
