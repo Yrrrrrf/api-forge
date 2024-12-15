@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from forge.core.logging import *
-from forge.gen.crud import CRUD
+from forge.gen import CRUD
 from forge.tools.sql_mapping import ArrayType, get_eq_type
 
 # ? Metadata for some function ---------------------------------------------------

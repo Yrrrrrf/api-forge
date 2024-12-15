@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     # Package details
     name="api-forge",
-    version="0.0.2",
+    version="0.0.3",
     description="A package for generating FastAPI CRUD operations and routes",
     url="https://github.com/Yrrrrrf/api-forge",
     python_requires=">=3.10",

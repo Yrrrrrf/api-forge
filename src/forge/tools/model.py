@@ -97,15 +97,15 @@ class ModelForge(BaseModel):
         for schema in self.include_schemas:
             table_count = len(inspector.get_table_names(schema=schema))
             view_count = len(inspector.get_view_names(schema=schema))
-            print(f"\t{magenta(arrow(schema)):<32}{dim('Tables:')} {green(f"{table_count:>4}")}\t{dim('Views: ')} {blue(f"{view_count:>4}")}")
+            print(f"\t{magenta(arrow(schema)):<32}{dim('Tables:')} {green(f'{table_count:>4}')}\t{dim('Views: ')} {blue(f'{view_count:>4}')}")
 
         # Summary statistics in a structured format
         print(f"\n{cyan('Summary Statistics:')}")
-        print(f"  {bullet(dim('Enums')):<16} {yellow(f"{len(self.enum_cache):>4}")}")
-        print(f"  {bullet(dim('Views')):<16} {blue(f"{len(self.view_cache):>4}")}")
-        print(f"  {bullet(dim('Models')):<16} {green(f"{len(self.model_cache):>4}")}")
+        print(f"  {bullet(dim('Enums')):<16} {yellow(f'{len(self.enum_cache):>4}')}")
+        print(f"  {bullet(dim('Views')):<16} {blue(f'{len(self.view_cache):>4}')}")
+        print(f"  {bullet(dim('Models')):<16} {green(f'{len(self.model_cache):>4}')}")
         
-        print(f"\n{bright('Total Components:')} {len(self.enum_cache) + len(self.view_cache) + len(self.model_cache)}\n")
+        # print(f"\n{bright('Total Components:')} {len(self.enum_cache) + len(self.view_cache) + len(self.model_cache)}\n")
 
     def log_schema_tables(self) -> None:
         for schema in self.include_schemas:
@@ -163,7 +163,7 @@ def print_table_structure(table: Table) -> None:
         match column.type:
             case _  if isinstance(column.type, SQLAlchemyEnum):
                 # type_str = f"{yellow(column.type.name)}"
-                type_str = f"{yellow(f"Enum({column.type.name})")}"
+                type_str = f"{yellow(f'Enum({column.type.name})')}"
                 values = f"{gray(str(column.type.enums))}"
             case _:
                 values = ""

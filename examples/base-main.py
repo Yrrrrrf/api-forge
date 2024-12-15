@@ -29,7 +29,7 @@ db_manager = DBForge(config=DBConfig(
         pool_pre_ping=True
     ),
 ))
-db_manager.log_metadata_stats()
+# db_manager.log_metadata_stats()
 
 # ? Model Forge ---------------------------------------------------------------------------------
 model_forge = ModelForge(
