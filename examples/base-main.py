@@ -30,7 +30,7 @@ db_manager = DBForge(config=DBConfig(
         pool_pre_ping=True
     ),
 ))
-# db_manager.log_metadata_stats()
+db_manager.log_metadata_stats()
 
 # ? Model Forge ---------------------------------------------------------------------------------
 model_forge = ModelForge(
@@ -46,6 +46,7 @@ model_forge.log_metadata_stats()
 # todo: Improve the log_schema_*() fn's to be more informative & also add some 'verbose' flag
 # model_forge.log_schema_tables()
 # model_forge.log_schema_views()
+model_forge.log_schema_fns()
 # # todo: FnForge::log_schema_functions()
 
 # # * Add some logging to the model_forge...

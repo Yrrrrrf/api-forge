@@ -54,7 +54,7 @@ class FunctionMetadata(BaseModel):
     return_type: Optional[str] = None
     parameters: List[FunctionParameter] = Field(default_factory=list)
     type: FunctionType
-    object_type: PostgresObjectType  # Add this field
+    object_type: PostgresObjectType
     volatility: FunctionVolatility
     security_type: SecurityType
     is_strict: bool
@@ -64,6 +64,64 @@ class FunctionMetadata(BaseModel):
         from_attributes=True,
         arbitrary_types_allowed=True
     )
+
+    def __str__(self) -> str:
+        """Return unformatted string representation of the function."""
+        param_str = ", ".join(f"{p.name}: {p.type}" for p in self.parameters)
+        return f"{self.schema}.{self.name}({param_str}) → {self.return_type or 'void'}"
+
+    def __repr__(self) -> str:
+        """Return formatted string representation with ANSI colors."""
+        lines = []
+        
+        # Function header with type and name
+        fn_type = green(self.type.value.upper())
+        fn_name = f"{cyan(self.schema)}.{bold(cyan(self.name))}"
+        
+        # Handle functions with no parameters differently
+        if not self.parameters:
+            return_signature = ")"
+            if self.return_type and self.return_type != 'void':
+                return_signature += f" → {yellow(self.return_type)}"
+            
+            signature_line = f"\t{fn_type}  {fn_name}({return_signature}"
+            lines.append(signature_line)
+            
+            if self.description:
+                desc_line = f"\t{dim('Description:')} {italic(gray(self.description))}"
+                lines.append(desc_line)
+        else:
+            # Start of function signature for functions with parameters
+            lines.append(f"\t{fn_type}  {fn_name}(")
+            
+            # Format parameters vertically
+            max_param_name_length = max(len(param.name) for param in self.parameters)
+            
+            # Add each parameter
+            for i, param in enumerate(self.parameters):
+                param_name = dim(param.name.ljust(max_param_name_length))
+                param_type = magenta(param.type)
+                param_line = f"\t\t{param_name}  {param_type}"
+                
+                if param.has_default:
+                    param_line += f" = {dim(str(param.default_value))}"
+                    
+                if i < len(self.parameters) - 1:
+                    param_line += ","
+                    
+                lines.append(param_line)
+            
+            # Close function signature
+            return_signature = ")"
+            if self.return_type and self.return_type != 'void':
+                return_signature += f" → {yellow(self.return_type)}"
+            lines.append(f"\t{return_signature}")
+            
+            # Add description if available
+            if self.description:
+                lines.append(f"\t{dim('Description:')} {italic(gray(self.description))}")
+
+        return "\n".join(lines)
 
 def load_fn(
     db_dependency: Any,

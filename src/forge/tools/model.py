@@ -83,25 +83,6 @@ class ModelForge(BaseModel):
         self.proc_cache = proc
         self.trig_cache = trig
 
-    # def log_metadata_stats(self) -> None:
-    #     """Print metadata statistics for the database with improved formatting."""
-    #     inspector = inspect(self.db_manager.engine)
-    #     print(header("ModelForge Statistics"))
-    #     print(f"\n{cyan(bullet('Schemas'))}: {bright(len(self.include_schemas))}")
-
-    #     [self.log_schema_dt(schema) for schema in self.include_schemas]  # * Log schema details
-
-    #     # Summary statistics in a structured format
-    #     print(f"\n{cyan('Summary Statistics:')}")
-    #     print(f"\t{bullet(dim('Enums')):<16} {yellow(f'{len(self.enum_cache):>4}')}")
-    #     print(f"\t{bullet(dim('Views')):<16} {blue(f'{len(self.view_cache):>4}')}")
-    #     print(f"\t{bullet(dim('Models')):<16} {green(f'{len(self.table_cache):>4}')}")
-    #     print(f"\t{bullet(dim('Functions')):<16} {magenta(f'{len(self.fn_cache):>4}')}")
-    #     print(f"\t{bullet(dim('Procedures')):<16} {magenta(f'{len(self.proc_cache):>4}')}")
-    #     print(f"\t{bullet(dim('Triggers')):<16} {magenta(f'{len(self.trig_cache):>4}')}")
-
-
-
     def log_metadata_stats(self) -> None:
         """Print metadata statistics in a table format."""
         inspector = inspect(self.db_manager.engine)
@@ -117,7 +98,7 @@ class ModelForge(BaseModel):
         header_row = "│ "
         header_row += " │ ".join(pad_str(bright(h), w) for h, w in zip(headers, col_widths))
         header_row += " │"
-        
+
         border_line = "├" + "┼".join("─" * (w + 2) for w in col_widths) + "┤"
         top_border = "┌" + "┬".join("─" * (w + 2) for w in col_widths) + "┐"
         bottom_border = "└" + "┴".join("─" * (w + 2) for w in col_widths) + "┘"
@@ -185,32 +166,6 @@ class ModelForge(BaseModel):
         print()
 
 
-
-
-    def log_schema_dt(self, schema: str) -> None:
-        count_fn = lambda v: [table for table, _ in v.values() if table.schema == schema]
-        c_table = count_fn(self.table_cache)
-        c_view = count_fn(self.view_cache)
-
-        count_e = lambda v: [e for e in v.values() if e.schema == schema]
-        c_enum = count_e(self.enum_cache)
-        c_fn = count_e(self.fn_cache)
-        c_proc = count_e(self.proc_cache)
-        c_trig = count_e(self.trig_cache)
-
-        print(f"  {magenta(arrow(bold(f'{schema}')))}")
-
-        print(f"\t{bullet(dim('Tables')):<16} {green(f'{len(c_table):>4}')}")
-        print(f"\t{bullet(dim('Views')):<16} {blue(f'{len(c_view):>4}')}")
-        print(f"\t{bullet(dim('Enums')):<16} {yellow(f'{len(c_enum):>4}')}")
-        print(f"\t{bullet(dim('Functions')):<16} {magenta(f'{len(c_fn):>4}')}")
-        print(f"\t{bullet(dim('Procedures')):<16} {magenta(f'{len(c_proc):>4}')}")
-        print(f"\t{bullet(dim('Triggers')):<16} {magenta(f'{len(c_trig):>4}')}")
-        
-        c = sum([len(c_table), len(c_view), len(c_enum), len(c_fn), len(c_proc), len(c_trig)])
-        print(f"\t{bullet(dim('Total')):<16} {bright(f'{c:>4}')}\n")
-
-
     def log_schema_tables(self) -> None:
         for schema in self.include_schemas:
             print(f"\n{'Schema:'} {bold(schema)}")
@@ -224,6 +179,22 @@ class ModelForge(BaseModel):
             for table in self.db_manager.metadata.tables.values():
                 if table.name in inspect(self.db_manager.engine).get_view_names(schema=schema):
                     print_table_structure(table)
+
+    def log_schema_fns(self) -> None:
+        """Log all functions organized by schema."""
+        print(header("Database Functions"))
+        
+        # * Group fns by schema
+        for schema in sorted(self.include_schemas):
+            schema_fns = {
+                name: metadata 
+                for name, metadata in self.fn_cache.items() 
+                if metadata.schema == schema
+            }
+            
+            if not schema_fns: continue
+            print(f"\n{bright('Schema:')} {bold(schema)}")  # Print schema header
+            [print(f'{fn.__repr__()}\n') for fn in schema_fns.values()]  # * Print the function metadata
 
 
 def print_table_structure(table: Table) -> None:
