@@ -73,9 +73,13 @@ model_forge = ModelForge(
 api_forge = APIForge(model_forge=model_forge)
 
 # Generate all routes
+# This will add the routes to it's respective router
 api_forge.gen_table_routes()  # CRUD routes for tables
 api_forge.gen_view_routes()   # Read routes for views
 api_forge.gen_fn_routes()     # Routes for database functions
+
+# Add the routes to the FastAPI app
+[app.include_router(r) for r in api_forge.get_routers()]
 ```
 Then run the application using Uvicorn:
 ```bash

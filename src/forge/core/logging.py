@@ -27,6 +27,29 @@ bullet = lambda x: f"• {x}"
 arrow = lambda x: f"→ {x}"
 box = lambda x: f"┌{'─'*50}┐\n│{x:^50}│\n└{'─'*50}┘"
 
+
+def get_ansi_length(text: str) -> int:
+    """Calculate the true visible length of a string with ANSI escape codes."""
+    # Remove ANSI escape sequences
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    clean_text = ansi_escape.sub('', text)
+    return len(clean_text)
+
+def pad_str(text: str, length: int, align: str = 'left') -> str:
+    """Pad string considering ANSI escape codes."""
+    visible_length = get_ansi_length(text)
+    padding_needed = max(0, length - visible_length)
+    
+    if align == 'right':
+        return ' ' * padding_needed + text
+    elif align == 'center':
+        left_pad = padding_needed // 2
+        right_pad = padding_needed - left_pad
+        return ' ' * left_pad + text + ' ' * right_pad
+    else:  # left align
+        return text + ' ' * padding_needed
+
+
 class Logger:
     """Simple logger with ANSI color support and basic timing capabilities."""
     

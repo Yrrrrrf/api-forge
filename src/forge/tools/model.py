@@ -25,7 +25,7 @@ class ModelForge(BaseModel):
     exclude_tables: List[str] = Field(default_factory=list)
 
     # ^ TABLE cache:    { name: (Table, (PydanticModel, SQLAlchemyModel)) }
-    model_cache: Dict[str, Tuple[Table, Tuple[Type[BaseModel], Type[BaseSQLModel]]]] = Field(default_factory=dict)
+    table_cache: Dict[str, Tuple[Table, Tuple[Type[BaseModel], Type[BaseSQLModel]]]] = Field(default_factory=dict)
     # ^ VIEW cache:     { name: (Table, (QueryModel, ResultModel)) }
     view_cache: Dict[str, Tuple[Table, Tuple[Type[BaseModel], Type[BaseModel]]]] = Field(default_factory=dict)
     # ^ ENUM cache:     { name: EnumInfo , ... }
@@ -56,7 +56,7 @@ class ModelForge(BaseModel):
 
     def _load_models(self) -> None:
         from forge.gen.table import load_tables
-        self.model_cache = load_tables(
+        self.table_cache = load_tables(
             metadata=self.db_manager.metadata,
             engine=self.db_manager.engine,
             include_schemas=self.include_schemas,
@@ -79,33 +79,137 @@ class ModelForge(BaseModel):
             db_dependency=self.db_manager.get_db,
             include_schemas=self.include_schemas
         )
-        # [print(f"{cyan('Function:')} {bold(name)}") for name in fn]
-        # [print(f"{cyan('Procedure:')} {bold(name)}") for name in proc]
-        # [print(f"{cyan('Trigger:')} {bold(name)}") for name in trig]
-
         self.fn_cache = fn
         self.proc_cache = proc
         self.trig_cache = trig
 
+    # def log_metadata_stats(self) -> None:
+    #     """Print metadata statistics for the database with improved formatting."""
+    #     inspector = inspect(self.db_manager.engine)
+    #     print(header("ModelForge Statistics"))
+    #     print(f"\n{cyan(bullet('Schemas'))}: {bright(len(self.include_schemas))}")
+
+    #     [self.log_schema_dt(schema) for schema in self.include_schemas]  # * Log schema details
+
+    #     # Summary statistics in a structured format
+    #     print(f"\n{cyan('Summary Statistics:')}")
+    #     print(f"\t{bullet(dim('Enums')):<16} {yellow(f'{len(self.enum_cache):>4}')}")
+    #     print(f"\t{bullet(dim('Views')):<16} {blue(f'{len(self.view_cache):>4}')}")
+    #     print(f"\t{bullet(dim('Models')):<16} {green(f'{len(self.table_cache):>4}')}")
+    #     print(f"\t{bullet(dim('Functions')):<16} {magenta(f'{len(self.fn_cache):>4}')}")
+    #     print(f"\t{bullet(dim('Procedures')):<16} {magenta(f'{len(self.proc_cache):>4}')}")
+    #     print(f"\t{bullet(dim('Triggers')):<16} {magenta(f'{len(self.trig_cache):>4}')}")
+
+
 
     def log_metadata_stats(self) -> None:
-        """Print metadata statistics for the database with improved formatting."""
+        """Print metadata statistics in a table format."""
         inspector = inspect(self.db_manager.engine)
         print(header("ModelForge Statistics"))
-        print(f"\n{cyan(bullet('Schemas'))}: {bright(len(self.include_schemas))}")
 
-        for schema in self.include_schemas:
-            table_count = len(inspector.get_table_names(schema=schema))
-            view_count = len(inspector.get_view_names(schema=schema))
-            print(f"\t{magenta(arrow(schema)):<32}{dim('Tables:')} {green(f'{table_count:>4}')}\t{dim('Views: ')} {blue(f'{view_count:>4}')}")
-
-        # Summary statistics in a structured format
-        print(f"\n{cyan('Summary Statistics:')}")
-        print(f"  {bullet(dim('Enums')):<16} {yellow(f'{len(self.enum_cache):>4}')}")
-        print(f"  {bullet(dim('Views')):<16} {blue(f'{len(self.view_cache):>4}')}")
-        print(f"  {bullet(dim('Models')):<16} {green(f'{len(self.model_cache):>4}')}")
+        # Table headers
+        schema_width = 16
+        count_width = 8
+        headers = ["Schema", "Tables", "Views", "Enums", "Fn's", "Proc's", "Triggers", "Total"]
+        col_widths = [schema_width] + [count_width] * (len(headers) - 1)
         
-        # print(f"\n{bright('Total Components:')} {len(self.enum_cache) + len(self.view_cache) + len(self.model_cache)}\n")
+        # Print header row
+        header_row = "│ "
+        header_row += " │ ".join(pad_str(bright(h), w) for h, w in zip(headers, col_widths))
+        header_row += " │"
+        
+        border_line = "├" + "┼".join("─" * (w + 2) for w in col_widths) + "┤"
+        top_border = "┌" + "┬".join("─" * (w + 2) for w in col_widths) + "┐"
+        bottom_border = "└" + "┴".join("─" * (w + 2) for w in col_widths) + "┘"
+
+        print(f"\n{top_border}")
+        print(header_row)
+        print(border_line)
+
+        # Track totals for summary
+        total_tables = 0
+        total_views = 0
+        total_enums = 0
+        total_functions = 0
+        total_procedures = 0
+        total_triggers = 0
+
+        # Print each schema's statistics
+        for schema in sorted(self.include_schemas):
+            # Count items for this schema
+            tables = len([t for t, _ in self.table_cache.values() if t.schema == schema])
+            views = len([v for v, _ in self.view_cache.values() if v.schema == schema])
+            enums = len([e for e in self.enum_cache.values() if e.schema == schema])
+            functions = len([f for f in self.fn_cache.values() if f.schema == schema])
+            procedures = len([p for p in self.proc_cache.values() if p.schema == schema])
+            triggers = len([t for t in self.trig_cache.values() if t.schema == schema])
+            schema_total = tables + views + enums + functions + procedures + triggers
+
+            # Update totals
+            total_tables += tables
+            total_views += views
+            total_enums += enums
+            total_functions += functions
+            total_procedures += procedures
+            total_triggers += triggers
+
+            # Create row
+            row = [
+                pad_str(magenta(schema), schema_width),
+                pad_str(green(str(tables)), count_width, 'right'),
+                pad_str(blue(str(views)), count_width, 'right'),
+                pad_str(yellow(str(enums)), count_width, 'right'),
+                pad_str(magenta(str(functions)), count_width, 'right'),
+                pad_str(magenta(str(procedures)), count_width, 'right'),
+                pad_str(magenta(str(triggers)), count_width, 'right'),
+                pad_str(bright(str(schema_total)), count_width, 'right')
+            ]
+            
+            print("│ " + " │ ".join(row) + " │")
+
+        # Print summary row
+        print(border_line)
+        grand_total = total_tables + total_views + total_enums + total_functions + total_procedures + total_triggers
+        summary_row = [
+            pad_str(bright("TOTAL"), schema_width),
+            pad_str(green(str(total_tables)), count_width, 'right'),
+            pad_str(blue(str(total_views)), count_width, 'right'),
+            pad_str(yellow(str(total_enums)), count_width, 'right'),
+            pad_str(magenta(str(total_functions)), count_width, 'right'),
+            pad_str(magenta(str(total_procedures)), count_width, 'right'),
+            pad_str(magenta(str(total_triggers)), count_width, 'right'),
+            pad_str(bright(str(grand_total)), count_width, 'right')
+        ]
+        print("│ " + " │ ".join(summary_row) + " │")
+        print(bottom_border)
+        print()
+
+
+
+
+    def log_schema_dt(self, schema: str) -> None:
+        count_fn = lambda v: [table for table, _ in v.values() if table.schema == schema]
+        c_table = count_fn(self.table_cache)
+        c_view = count_fn(self.view_cache)
+
+        count_e = lambda v: [e for e in v.values() if e.schema == schema]
+        c_enum = count_e(self.enum_cache)
+        c_fn = count_e(self.fn_cache)
+        c_proc = count_e(self.proc_cache)
+        c_trig = count_e(self.trig_cache)
+
+        print(f"  {magenta(arrow(bold(f'{schema}')))}")
+
+        print(f"\t{bullet(dim('Tables')):<16} {green(f'{len(c_table):>4}')}")
+        print(f"\t{bullet(dim('Views')):<16} {blue(f'{len(c_view):>4}')}")
+        print(f"\t{bullet(dim('Enums')):<16} {yellow(f'{len(c_enum):>4}')}")
+        print(f"\t{bullet(dim('Functions')):<16} {magenta(f'{len(c_fn):>4}')}")
+        print(f"\t{bullet(dim('Procedures')):<16} {magenta(f'{len(c_proc):>4}')}")
+        print(f"\t{bullet(dim('Triggers')):<16} {magenta(f'{len(c_trig):>4}')}")
+        
+        c = sum([len(c_table), len(c_view), len(c_enum), len(c_fn), len(c_proc), len(c_trig)])
+        print(f"\t{bullet(dim('Total')):<16} {bright(f'{c:>4}')}\n")
+
 
     def log_schema_tables(self) -> None:
         for schema in self.include_schemas:
@@ -120,8 +224,6 @@ class ModelForge(BaseModel):
             for table in self.db_manager.metadata.tables.values():
                 if table.name in inspect(self.db_manager.engine).get_view_names(schema=schema):
                     print_table_structure(table)
-
-
 
 
 def print_table_structure(table: Table) -> None:

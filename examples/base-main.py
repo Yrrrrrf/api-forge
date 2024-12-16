@@ -1,3 +1,4 @@
+from fastapi import FastAPI
 from forge import *
 
 import uvicorn
@@ -41,7 +42,7 @@ model_forge = ModelForge(
         'analytics'
     ],
 )
-# model_forge.log_metadata_stats()
+model_forge.log_metadata_stats()
 # todo: Improve the log_schema_*() fn's to be more informative & also add some 'verbose' flag
 # model_forge.log_schema_tables()
 # model_forge.log_schema_views()
@@ -58,10 +59,12 @@ model_forge = ModelForge(
 api_forge = APIForge(model_forge=model_forge)
 
 # ? Generate Routes -----------------------------------------------------------------------------
-api_forge.gen_table_routes()
-api_forge.gen_view_routes()
-api_forge.gen_fn_routes()
+# api_forge.gen_table_routes()
+# api_forge.gen_view_routes()
+# api_forge.gen_fn_routes()
 
+# Add the routes to the FastAPI app
+# [app.include_router(r) for r in api_forge.get_routers()]
 
 # * Same as just calling it as a module
 if __name__ == "__main__":

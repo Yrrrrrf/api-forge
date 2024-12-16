@@ -33,11 +33,17 @@ def load_enums(
                 for column in table.columns:
                     if isinstance(column.type, SQLAlchemyEnum):
                         enum_name = f"{column.name}_enum"
+                        # todo: Check if the generated enum schema is correct
+                        # ^ I've the hint that the schema is not being used correctly... 
+                        # ^ And it just takes the schema of the table, which is not correct
+                        # ^ Sometimes this is not a problem, but it can be a problem
+                        # . Sometimes this can be a problem, but I'm not sure if it's a big one 
                         if enum_name not in enum_cache:
                             enum_cache[enum_name] = EnumInfo(
                                 name=enum_name,
                                 values=list(column.type.enums),
-                                python_enum=PyEnum(enum_name, {v: v for v in column.type.enums})
+                                python_enum=PyEnum(enum_name, {v: v for v in column.type.enums}),
+                                schema=schema
                             )
     
     return enum_cache

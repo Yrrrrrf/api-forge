@@ -1,8 +1,8 @@
 from typing import Callable, List, Dict, Any, Optional, Type, Union
-import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import Table
+from uuid import UUID
 from pydantic import BaseModel, create_model, Field
 from enum import Enum
 from sqlalchemy import Enum as SQLAlchemyEnum
@@ -75,7 +75,7 @@ class CRUD:
             
             # Only remove the primary key UUID if it exists, keep foreign key UUIDs
             for column in self.table.columns:
-                if column.type.python_type == uuid.UUID and column.primary_key:
+                if column.type.python_type == UUID and column.primary_key:
                     data.pop(column.name, None)
                     
             try:
