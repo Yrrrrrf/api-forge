@@ -384,43 +384,48 @@ def gen_fn_route(
     FunctionInputModel, FunctionOutputModel, is_set = create_fn_models(fn_metadata)
     is_scalar = fn_metadata.type == FunctionType.SCALAR
 
-    if fn_metadata.object_type == PostgresObjectType.PROCEDURE:
-        @router.post(
-            f"proc/{fn_metadata.name}",
-            response_model=None,
-            summary=f"Execute {fn_metadata.name} procedure",
-            description=fn_metadata.description or f"Execute the {fn_metadata.name} procedure"
-        )
-        async def execute_procedure(
-            params: FunctionInputModel,
-            db: Session = Depends(db_dependency)
-        ):
-            return _execute_proc(
-                db=db,
-                params=params,
-                fn_name=fn_metadata.name,
-                schema=fn_metadata.schema
+    match fn_metadata.object_type:
+        case PostgresObjectType.PROCEDURE:
+            @router.post(
+                f"/proc/{fn_metadata.name}",
+                response_model=None,
+                summary=f"Execute {fn_metadata.name} procedure",
+                description=fn_metadata.description or f"Execute the {fn_metadata.name} procedure"
             )
-    else:  # Function route
-        @router.post(
-            f"fn/{fn_metadata.name}",
-            response_model=List[FunctionOutputModel] if is_set else FunctionOutputModel,
-            summary=f"Execute {fn_metadata.name} function",
-            description=fn_metadata.description or f"Execute the {fn_metadata.name} function"
-        )
-        async def execute_function(
-            params: FunctionInputModel,
-            db: Session = Depends(db_dependency)
-        ):
-            return _execute_fn(
-                db=db,
-                params=params,
-                fn_name=fn_metadata.name,
-                schema=fn_metadata.schema,
-                output_model=FunctionOutputModel,
-                is_set=is_set,
-                is_scalar=is_scalar
+            async def execute_procedure(
+                params: FunctionInputModel,
+                db: Session = Depends(db_dependency)
+            ):
+                return _execute_proc(
+                    db=db,
+                    params=params,
+                    fn_name=fn_metadata.name,
+                    schema=fn_metadata.schema
+                )
+        case PostgresObjectType.FUNCTION:
+            @router.post(
+                f"/fn/{fn_metadata.name}",
+                response_model=List[FunctionOutputModel] if is_set else FunctionOutputModel,
+                summary=f"Execute {fn_metadata.name} function",
+                description=fn_metadata.description or f"Execute the {fn_metadata.name} function"
             )
+            async def execute_function(
+                params: FunctionInputModel,
+                db: Session = Depends(db_dependency)
+            ):
+                return _execute_fn(
+                    db=db,
+                    params=params,
+                    fn_name=fn_metadata.name,
+                    schema=fn_metadata.schema,
+                    output_model=FunctionOutputModel,
+                    is_set=is_set,
+                    is_scalar=is_scalar
+                )
+        case PostgresObjectType.TRIGGER: print("Trigger functions not yet supported")
+        case PostgresObjectType.AGGREGATE: print("Aggregate functions not yet supported")
+        case PostgresObjectType.WINDOW: print("Window functions not yet supported")
+        case _: print("Unknown object type")
 
 def _execute_proc(
     db: Session,

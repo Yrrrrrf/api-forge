@@ -90,8 +90,8 @@ class ModelForge(BaseModel):
 
         # Table headers
         schema_width = 16
-        count_width = 8
-        headers = ["Schema", "Tables", "Views", "Enums", "Fn's", "Proc's", "Triggers", "Total"]
+        count_width = 6
+        headers = ["Schema", "Tables", "Views", "Enums", "Fn's", "Proc's", "Trig's", "Total"]
         col_widths = [schema_width] + [count_width] * (len(headers) - 1)
         
         # Print header row
@@ -134,8 +134,7 @@ class ModelForge(BaseModel):
             total_procedures += procedures
             total_triggers += triggers
 
-            # Create row
-            row = [
+            row = [  # Create row (formatted strings)
                 pad_str(magenta(schema), schema_width),
                 pad_str(green(str(tables)), count_width, 'right'),
                 pad_str(blue(str(views)), count_width, 'right'),
@@ -144,8 +143,7 @@ class ModelForge(BaseModel):
                 pad_str(magenta(str(procedures)), count_width, 'right'),
                 pad_str(magenta(str(triggers)), count_width, 'right'),
                 pad_str(bright(str(schema_total)), count_width, 'right')
-            ]
-            
+            ]            
             print("│ " + " │ ".join(row) + " │")
 
         # Print summary row
@@ -159,12 +157,11 @@ class ModelForge(BaseModel):
             pad_str(magenta(str(total_functions)), count_width, 'right'),
             pad_str(magenta(str(total_procedures)), count_width, 'right'),
             pad_str(magenta(str(total_triggers)), count_width, 'right'),
-            pad_str(bright(str(grand_total)), count_width, 'right')
+            pad_str(underline(bright(str(grand_total))), count_width, 'right')
         ]
         print("│ " + " │ ".join(summary_row) + " │")
         print(bottom_border)
         print()
-
 
     def log_schema_tables(self) -> None:
         for schema in self.include_schemas:

@@ -4,6 +4,9 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import MetaData
 from pydantic import BaseModel
 
+from forge.forge import ForgeInfo
+
+
 class ColumnMetadata(BaseModel):
     name: str  # Column name
     type: str
@@ -19,8 +22,13 @@ class SchemaMetadata(BaseModel):
     tables: Dict[str, TableMetadata] = {}
 
 
-def get_metadata_router(metadata: MetaData, prefix: str = "/dt") -> APIRouter:
+def get_metadata_router(forge_info: ForgeInfo, metadata: MetaData, prefix: str = "/dt") -> APIRouter:
     dt_router: APIRouter = APIRouter(prefix=prefix, tags=["METADATA"])
+
+    # return the app data...
+    @dt_router.get("/", response_model=ForgeInfo)
+    def get_metadata(): 
+        return forge_info
 
     @dt_router.get("/schemas", response_model=List[SchemaMetadata])
     def get_schemas():

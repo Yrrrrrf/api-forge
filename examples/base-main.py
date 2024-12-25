@@ -1,18 +1,19 @@
-from fastapi import FastAPI
-from forge import *
-
-import uvicorn
-
+# std imports
 import os
+# 3rd party imports
+from fastapi import FastAPI
+# * Local imports
+from forge import *  # * import forge prelude (main module exports)
 
+
+app: FastAPI = FastAPI()  # * Create a FastAPI app instance
 
 # ? Main Forge -----------------------------------------------------------------------------------
-app_forge = Forge(
+app_forge = Forge(  # * Create a Forge instance
     info=ForgeInfo(PROJECT_NAME="MyAPI"),
+    app=app,
 )
-app: FastAPI = app_forge.app
 
-# & `uvicorn examples.base-main:app --reload --env-file .env`
 # ? DB Forge ------------------------------------------------------------------------------------
 db_manager = DBForge(config=DBConfig(
     db_type=os.getenv('DB_TYPE', 'postgresql'),
@@ -42,33 +43,25 @@ model_forge = ModelForge(
         'analytics'
     ],
 )
-model_forge.log_metadata_stats()
 # todo: Improve the log_schema_*() fn's to be more informative & also add some 'verbose' flag
-# model_forge.log_schema_tables()
-# model_forge.log_schema_views()
+model_forge.log_schema_tables()
+model_forge.log_schema_views()
 model_forge.log_schema_fns()
-# # todo: FnForge::log_schema_functions()
+model_forge.log_metadata_stats()
 
-# # * Add some logging to the model_forge...
-# [print(f"{bold('Models:')} {table}") for table in model_forge.model_cache]
-# [print(f"{bold('Views:')} {view}") for view in model_forge.view_cache]
-# [print(f"{bold('PyEnum:')} {enum}") for enum in model_forge.enum_cache]
-# # todo: Print the 'Functions' as well
-# # [print(f"{bold('Functions:')} {enum}") for enum in model_forge.fn_cache]
-
-
+# ? API Forge -----------------------------------------------------------------------------------
 api_forge = APIForge(model_forge=model_forge)
 
-# ? Generate Routes -----------------------------------------------------------------------------
-# api_forge.gen_table_routes()
-# api_forge.gen_view_routes()
-# api_forge.gen_fn_routes()
+api_forge.gen_table_routes()
+api_forge.gen_view_routes()
+api_forge.gen_fn_routes()
 
 # Add the routes to the FastAPI app
 # [app.include_router(r) for r in api_forge.get_routers()]
 
 # * Same as just calling it as a module
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(
         "base-main:app", 
         host=app_forge.uvicorn_config.host,

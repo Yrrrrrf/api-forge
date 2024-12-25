@@ -32,8 +32,8 @@ class APIForge(BaseModel):
     def gen_table_routes(self) -> None:
         """Generate CRUD routes for all tables."""
         print(f"\n{bold('[Generating Table Routes]')}")
-        
-        for table_key, table_data in self.model_forge.model_cache.items():
+
+        for table_key, table_data in self.model_forge.table_cache.items():
             schema, table_name = table_key.split('.')
             print(f"\t{gray('gen crud for:')} {schema}.{bold(cyan(table_name))}")
             gen_table_crud(
