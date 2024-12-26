@@ -42,30 +42,29 @@ class Forge(BaseModel):
 
     def _initialize_app(self) -> None:
         """Initialize FastAPI app if not provided."""
-        if self.app is None:
-            # * Set up FastAPI app with project info
-            self.app = FastAPI(
-                title=self.info.PROJECT_NAME,
-                version=self.info.VERSION,
-                description=self.info.DESCRIPTION,
-                contact={
-                    "name": self.info.AUTHOR,
-                    "email": self.info.EMAIL
-                },
-                license_info={
-                    "name": self.info.LICENSE,
-                    "url": self.info.LICENSE_URL
-                } if self.info.LICENSE else None
-            )
+        # todo: Check how to handle this properly... (if app is not provided)
+        # app = self.app or FastAPI()  # * this seams to be a better way...
 
-            # * Add CORS middleware by default
-            self.app.add_middleware(
-                CORSMiddleware,
-                allow_origins=["*"],
-                allow_credentials=True,
-                allow_methods=["*"],
-                allow_headers=["*"],
-            )
+        self.app.title = self.info.PROJECT_NAME
+        self.app.version = self.info.VERSION
+        self.app.description = self.info.DESCRIPTION
+        self.app.contact = {
+            "name": self.info.AUTHOR,
+            "email": self.info.EMAIL
+        }
+        self.app.license_info = {
+            "name": self.info.LICENSE,
+            "url": self.info.LICENSE_URL
+        } if self.info.LICENSE else None
+
+        # * Add CORS middleware by default
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     def _print_welcome_message(self) -> None:
         """Print welcome message with app information."""

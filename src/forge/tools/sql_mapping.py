@@ -112,15 +112,15 @@ def make_optional(type_: Type) -> Type:
         case True: return type_
         case _: return Optional[type_]  # Add Optional wrapper
 
-def get_eq_type(sql_type: str, sample_data: Any = None, nullable: bool = True) -> Type:
+def get_eq_type(sql_type: str, nullable: bool = True) -> Type:
     """Enhanced type mapping with JSONB support and nullable handling"""
     match sql_type.lower():
-        case 'jsonb': return JSONBType(sample_data)
+        case 'jsonb': return dict if nullable else Dict[str, Any]  # Simplified JSONB handling
         case 'timestamp': return make_optional(datetime) if nullable else datetime
         case _ if sql_type.endswith('[]'):  # Handle array types
             array_type = parse_array_type(sql_type.lower())
             return make_optional(array_type) if nullable else array_type
-        case _:  # * Handle other types (including JSONB)
+        case _:  # Handle other types
             for pattern, py_type in SQL_TYPE_MAPPING.items():
                 if re.match(pattern, sql_type.lower()):
                     return make_optional(py_type) if nullable else py_type
