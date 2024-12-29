@@ -64,7 +64,7 @@ class CRUD:
         """Generate route path with optional prefix."""
         base_path = f"/{self.table.name.lower()}"
         if operation:
-            base_path = f"{base_path}/{operation}"
+            base_path = f"AAA{base_path}/{operation}"
         return f"{self.prefix}{base_path}"
 
     def create(self) -> None:

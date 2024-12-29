@@ -46,21 +46,21 @@ app.include_router(get_metadata_router(app_forge.info, db_manager.metadata))
 model_forge = ModelForge(
     db_manager=db_manager,
     include_schemas=[
-        # 'public', 
+        'public', 
         'pharma', 
-        # 'management',
-        # 'analytics'
+        'management',
+        'analytics'
     ],
 )
-# model_forge.log_schema_tables()
+model_forge.log_schema_tables()
 model_forge.log_schema_views()
-# model_forge.log_schema_fns()
+model_forge.log_schema_fns()
 model_forge.log_metadata_stats()
 
 # ? API Forge -----------------------------------------------------------------------------------
 api_forge = APIForge(model_forge=model_forge)
 
-# api_forge.gen_table_routes()
+api_forge.gen_table_routes()
 api_forge.gen_view_routes()
 # api_forge.gen_fn_routes()
 

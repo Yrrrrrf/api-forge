@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Type, Any
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, ConfigDict, create_model
-from sqlalchemy import MetaData, Engine, Table, inspect, text
+from sqlalchemy import MetaData, Engine, Table, inspect
 from sqlalchemy.orm import DeclarativeBase, declared_attr
 from sqlalchemy.ext.declarative import declared_attr
 
@@ -33,7 +33,6 @@ def load_tables(
     engine: Engine,
     include_schemas: List[str],
     exclude_tables: List[str] = [],
-    db_dependency: Any = None  # Add db_dependency parameter
 ) -> Dict[str, Tuple[Table, Tuple[Type[BaseModel], Type[BaseSQLModel]]]]:
     """Generate and return both Pydantic and SQLAlchemy models for tables."""
     model_cache: Dict[str, Tuple[Table, Tuple[Type[BaseModel], Type[BaseSQLModel]]]] = {}
@@ -46,18 +45,8 @@ def load_tables(
             if (table.name in inspect(engine).get_table_names(schema=schema) and 
                 table.name not in exclude_tables):
                 
-                # Get sample data for JSONB fields
+                # todo: Optimize this to get a sample row from the table...
                 sample_data = {}
-                # if db_dependency:
-                #     try:
-                #         with next(db_dependency()) as db:
-                #             query = f"SELECT * FROM {schema}.{table.name} LIMIT 1"
-                #             result = db.execute(text(query)).first()
-                #             if result:
-                #                 sample_data = dict(result._mapping)
-                #     except Exception as e:
-                #         print(f"Warning: Could not get sample data for {table.name}: {str(e)}")
-
                 fields = {}
                 for column in table.columns:
                     column_type = str(column.type)
@@ -140,6 +129,5 @@ def gen_table_crud(
         pydantic_model=pydantic_model,
         sqlalchemy_model=sqlalchemy_model,
         router=router,
-        db_dependency=db_dependency,
-        prefix=f"/{table.schema}"
+        db_dependency=db_dependency
     ).generate_all()
