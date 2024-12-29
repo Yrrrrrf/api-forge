@@ -1,3 +1,4 @@
+import json
 from typing import Callable, List, Dict, Any, Optional, Type, Union
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -7,6 +8,8 @@ from pydantic import BaseModel, create_model, Field
 from enum import Enum
 from sqlalchemy import Enum as SQLAlchemyEnum
 from enum import Enum as PyEnum
+
+from forge.tools.sql_mapping import *
 
 
 class CRUD:
@@ -35,15 +38,20 @@ class CRUD:
         """Create a Pydantic model for query parameters."""
         query_fields = {}
         
-        # Get fields from pydantic model
-        for field_name, field in self.pydantic_model.__annotations__.items():
-            # Make all fields optional for query params
-            if hasattr(field, "__origin__") and field.__origin__ is Union:
-                # If field is already Optional
-                query_fields[field_name] = (field, Field(default=None))
+        for column in self.table.columns:
+            field_type = get_eq_type(str(column.type))
+            
+            # Always make query parameters Optional[str] for JSONB and Array types
+            if isinstance(field_type, (JSONBType, ArrayType)):
+                query_fields[column.name] = (Optional[str], Field(default=None))
             else:
-                # Make field Optional
-                query_fields[field_name] = (Optional[field], Field(default=None))
+                # For other types, preserve the type but make it optional
+                if hasattr(field_type, "__origin__") and field_type.__origin__ is Union:
+                    # If field is already Optional
+                    query_fields[column.name] = (field_type, Field(default=None))
+                else:
+                    # Make field Optional
+                    query_fields[column.name] = (Optional[field_type], Field(default=None))
 
         # Create the query params model
         return create_model(
@@ -93,7 +101,7 @@ class CRUD:
                 raise HTTPException(status_code=400, detail=f"Creation failed: {str(e)}")
 
     def read(self) -> None:
-        """Add READ route."""
+        """Add READ route with enhanced JSONB handling."""
         @self.router.get(
             self._get_route_path(),
             response_model=List[self.pydantic_model],
@@ -107,10 +115,17 @@ class CRUD:
             query = db.query(self.sqlalchemy_model)
             filters_dict = filters.model_dump(exclude_unset=True)
 
-            for column_name, value in filters_dict.items():
+            # Build query with filters
+            for field_name, value in filters_dict.items():
                 if value is not None:
-                    column = getattr(self.sqlalchemy_model, column_name)
-                    if isinstance(column.type, SQLAlchemyEnum):
+                    column = getattr(self.sqlalchemy_model, field_name)
+                    field_type = get_eq_type(str(column.type))
+                    
+                    if isinstance(field_type, (JSONBType, ArrayType)):
+                        # Skip JSONB and array filtering for now
+                        # You could add custom JSONB filtering logic here if needed
+                        continue
+                    elif isinstance(column.type, SQLAlchemyEnum):
                         if isinstance(value, str):
                             query = query.filter(column == value)
                         elif isinstance(value, PyEnum):
@@ -118,11 +133,61 @@ class CRUD:
                     else:
                         query = query.filter(column == value)
 
+            # Execute query and process results
             resources = query.all()
-            return [
-                self.pydantic_model.model_validate(resource.__dict__) 
-                for resource in resources
-            ]
+            processed_records = []
+            
+            for resource in resources:
+                record_dict = {}
+                for column in self.table.columns:
+                    value = getattr(resource, column.name)
+                    field_type = get_eq_type(str(column.type))
+
+                    if isinstance(field_type, JSONBType):
+                        if value is not None:
+                            # Parse JSONB data if it's a string
+                            if isinstance(value, str):
+                                try:
+                                    record_dict[column.name] = json.loads(value)
+                                except json.JSONDecodeError:
+                                    record_dict[column.name] = value
+                            else:
+                                record_dict[column.name] = value
+                        else:
+                            record_dict[column.name] = None
+                    elif isinstance(field_type, ArrayType):
+                        if value is not None:
+                            if isinstance(value, str):
+                                # Handle PostgreSQL array string format
+                                cleaned_value = value.strip('{}').split(',')
+                                record_dict[column.name] = [
+                                    field_type.item_type(item.strip('"')) 
+                                    for item in cleaned_value 
+                                    if item.strip()
+                                ]
+                            elif isinstance(value, list):
+                                record_dict[column.name] = [
+                                    field_type.item_type(item) 
+                                    for item in value 
+                                    if item is not None
+                                ]
+                            else:
+                                record_dict[column.name] = value
+                        else:
+                            record_dict[column.name] = []
+                    else:
+                        record_dict[column.name] = value
+
+                # Validate the processed record
+                try:
+                    validated_record = self.pydantic_model.model_validate(record_dict)
+                    processed_records.append(validated_record)
+                except Exception as e:
+                    print(f"Validation error for record in {self.table.name}: {record_dict}")
+                    print(f"Error: {str(e)}")
+                    raise
+
+            return processed_records
 
 
     # todo: Fix the return "updated_data"

@@ -32,8 +32,7 @@ def create_view_model(
         with next(db_dependency()) as db:
             query = f"SELECT * FROM {schema}.{view_table.name} LIMIT 1"
             result = db.execute(text(query)).first()
-            if result:
-                sample_data = dict(result._mapping)
+            if result: sample_data = dict(result._mapping)
     except Exception as e:
         print(f"Warning: Could not get sample data: {str(e)}")
 
@@ -146,7 +145,6 @@ def gen_view_route(
             if value is not None:
                 column = getattr(table.c, field_name)
                 if isinstance(get_eq_type(str(column.type)), (JSONBType, ArrayType)):
-                    # Skip JSONB and array filtering for now
                     continue
                 else:
                     param_name = f"param_{field_name}"
@@ -168,7 +166,7 @@ def gen_view_route(
             # Process each column value
             for column_name, value in record_dict.items():
                 column = table.c[column_name]
-                field_type = get_eq_type(str(column.type), value, nullable=column.nullable)
+                field_type = get_eq_type(str(column.type), value)
 
                 if isinstance(field_type, JSONBType):
                     if value is not None:

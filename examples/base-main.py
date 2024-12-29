@@ -1,17 +1,24 @@
+"""Main file for showcasing the database structure using DBForge"""
 # std imports
 import os
 # 3rd party imports
 from fastapi import FastAPI
-# * Local imports
+# Local imports
 from forge import *  # * import forge prelude (main module exports)
+from forge.gen.metadata import get_metadata_router  # * import the metadata router for the API
 
 
-app: FastAPI = FastAPI()  # * Create a FastAPI app instance
+app: FastAPI = FastAPI()  # * Create a FastAPI app (needed when calling the script directly)
 
 # ? Main Forge -----------------------------------------------------------------------------------
 app_forge = Forge(  # * Create a Forge instance
-    info=ForgeInfo(PROJECT_NAME="MyAPI"),
     app=app,
+    info=ForgeInfo(
+        PROJECT_NAME="Pharma Care",
+        VERSION="0.3.1",
+        DESCRIPTION="A simple API for managing a pharmacy",
+        AUTHOR="Fernando Byran Reza Campos",
+    ),
 )
 
 # ? DB Forge ------------------------------------------------------------------------------------
@@ -32,38 +39,40 @@ db_manager = DBForge(config=DBConfig(
     ),
 ))
 db_manager.log_metadata_stats()
+# * Add the metadata router to the FastAPI app
+app.include_router(get_metadata_router(app_forge.info, db_manager.metadata))
 
 # ? Model Forge ---------------------------------------------------------------------------------
 model_forge = ModelForge(
     db_manager=db_manager,
     include_schemas=[
-        'public', 
+        # 'public', 
         'pharma', 
-        'management',
-        'analytics'
+        # 'management',
+        # 'analytics'
     ],
 )
-# todo: Improve the log_schema_*() fn's to be more informative & also add some 'verbose' flag
-model_forge.log_schema_tables()
+# model_forge.log_schema_tables()
 model_forge.log_schema_views()
-model_forge.log_schema_fns()
+# model_forge.log_schema_fns()
 model_forge.log_metadata_stats()
 
 # ? API Forge -----------------------------------------------------------------------------------
 api_forge = APIForge(model_forge=model_forge)
 
-api_forge.gen_table_routes()
+# api_forge.gen_table_routes()
 api_forge.gen_view_routes()
-api_forge.gen_fn_routes()
+# api_forge.gen_fn_routes()
 
-# Add the routes to the FastAPI app
-# [app.include_router(r) for r in api_forge.get_routers()]
+# Add the API routes to the FastAPI app
+[app.include_router(r) for r in api_forge.get_routers()]
 
-# * Same as just calling it as a module
+
 if __name__ == "__main__":
-    import uvicorn
+    import uvicorn  # import uvicorn for running the FastAPI app
+    # * Run the FastAPI app using Uvicorn (if the script is called directly)
     uvicorn.run(
-        "base-main:app", 
+        "main:app", 
         host=app_forge.uvicorn_config.host,
         port=app_forge.uvicorn_config.port,
         reload=app_forge.uvicorn_config.reload,
