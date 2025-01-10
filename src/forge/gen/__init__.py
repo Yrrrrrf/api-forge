@@ -81,10 +81,14 @@ class CRUD:
         ) -> self.pydantic_model:
             data = resource.model_dump(exclude_unset=True)
             
-            # Only remove the primary key UUID if it exists, keep foreign key UUIDs
-            for column in self.table.columns:
-                if column.type.python_type == UUID and column.primary_key:
-                    data.pop(column.name, None)
+            # . Why do I think this will be a good idea???
+            # . Why do I think this will be a good idea???
+            # . Why do I think this will be a good idea???
+            # .____.
+            # * Only remove the primary key UUID if it exists, keep foreign key UUIDs
+            # for column in self.table.columns:
+            #     if column.type.python_type == UUID and column.primary_key:
+            #         data.pop(column.name, None)
                     
             try:
                 db_resource = self.sqlalchemy_model(**data)
