@@ -2,13 +2,14 @@
 ModelForge: Enhanced model management for database entities.
 Handles Pydantic and SQLAlchemy model generation, caching, and type mapping.
 """
-from typing import Dict, List, Optional, Tuple, Type, Any
-from pydantic import BaseModel, Field, ConfigDict, create_model
+from typing import Dict, List, Tuple, Type, Any
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import Column, Table, inspect, Enum as SQLAlchemyEnum
 
-from forge.gen.enum import EnumInfo
-from forge.gen.fn import FunctionMetadata
-from forge.gen.table import BaseSQLModel
+from forge.gen.enum import EnumInfo, load_enums
+from forge.gen.fn import FunctionMetadata, load_fn
+from forge.gen.table import BaseSQLModel, load_tables
+from forge.gen.view import load_views
 from forge.tools.sql_mapping import get_eq_type, JSONBType
 from forge.tools.db import DBForge
 from forge.core.logging import *
@@ -46,7 +47,6 @@ class ModelForge(BaseModel):
         self._load_fn()
 
     def _load_enums(self) -> None:
-        from forge.gen.enum import load_enums
         self.enum_cache = load_enums(
             metadata=self.db_manager.metadata,
             engine=self.db_manager.engine,
@@ -55,7 +55,6 @@ class ModelForge(BaseModel):
         )
 
     def _load_models(self) -> None:
-        from forge.gen.table import load_tables
         self.table_cache = load_tables(
             metadata=self.db_manager.metadata,
             engine=self.db_manager.engine,
@@ -65,7 +64,6 @@ class ModelForge(BaseModel):
 
     def _load_views(self) -> None:
         """Load and cache views as Table objects with associated Pydantic models"""
-        from forge.gen.view import load_views
         self.view_cache = load_views(
             metadata=self.db_manager.metadata,
             engine=self.db_manager.engine,
@@ -74,7 +72,6 @@ class ModelForge(BaseModel):
         )
 
     def _load_fn(self) -> None:
-        from forge.gen.fn import load_fn
         fn, proc, trig = load_fn(
             db_dependency=self.db_manager.get_db,
             include_schemas=self.include_schemas

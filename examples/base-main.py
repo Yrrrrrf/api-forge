@@ -5,23 +5,9 @@ import os
 from fastapi import FastAPI
 # Local imports
 from forge import *  # * import forge prelude (main module exports)
-from forge.gen.metadata import get_metadata_router  # * import the metadata router for the API
 
 
-app: FastAPI = FastAPI()  # * Create a FastAPI app (needed when calling the script directly)
-
-# ? Main Forge -----------------------------------------------------------------------------------
-app_forge = Forge(  # * Create a Forge instance
-    app=app,
-    info=ForgeInfo(
-        PROJECT_NAME="Pharma Care",
-        VERSION="0.3.1",
-        DESCRIPTION="A simple API for managing a pharmacy",
-        AUTHOR="Fernando Byran Reza Campos",
-    ),
-)
-
-# ? DB Forge ------------------------------------------------------------------------------------
+# ? DB Forge -------------------------------------------------------------------------------------
 db_manager = DBForge(config=DBConfig(
     db_type=os.getenv('DB_TYPE', 'postgresql'),
     driver_type=os.getenv('DRIVER_TYPE', 'sync'),
@@ -39,10 +25,13 @@ db_manager = DBForge(config=DBConfig(
     ),
 ))
 db_manager.log_metadata_stats()
-# * Add the metadata router to the FastAPI app
-app.include_router(get_metadata_router(app_forge.info, db_manager.metadata))
 
 # ? Model Forge ---------------------------------------------------------------------------------
+# * Select only the schemas that you need to include in the model!
+# * This allow you to encapsulate the database structure and only expose the necessary parts
+# * This is useful for security and performance reasons
+# * And allows you to create a more organized and structured API
+# * And also to use the same db and model for multiple projects
 model_forge = ModelForge(
     db_manager=db_manager,
     include_schemas=[
@@ -56,16 +45,25 @@ model_forge.log_schema_tables()
 model_forge.log_schema_views()
 model_forge.log_schema_fns()
 model_forge.log_metadata_stats()
+# * The model forge store all the possible models
 
-# ? API Forge -----------------------------------------------------------------------------------
-api_forge = APIForge(model_forge=model_forge)
+# ? Main API Forge -----------------------------------------------------------------------------------
+app: FastAPI = FastAPI()  # * Create a FastAPI app (needed when calling the script directly)
 
-api_forge.gen_table_routes()
-api_forge.gen_view_routes()
-# api_forge.gen_fn_routes()
-
-# Add the API routes to the FastAPI app
-[app.include_router(r) for r in api_forge.get_routers()]
+app_forge = Forge(  # * Create a Forge instance
+    app=app,
+    info=ForgeInfo(
+        PROJECT_NAME="Pharma Care",
+        VERSION="0.3.1",
+        DESCRIPTION="A simple API for managing a pharmacy",
+        AUTHOR="Fernando Byran Reza Campos",
+    ),
+)
+app_forge.gen_metadata_routes()
+# * The main forge store the app and creates routes for the models (w/ the static type checking)
+app_forge.gen_table_routes(model_forge)
+app_forge.gen_view_routes(model_forge)
+# api_forge.gen_fn_routes(model_forge)
 
 
 if __name__ == "__main__":

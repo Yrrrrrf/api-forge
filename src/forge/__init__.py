@@ -6,6 +6,5 @@
 # * PREDLUEDE * #
 from forge.forge import *
 from forge.tools.model import ModelForge
-from forge.tools.api import APIForge
 from forge.tools.db import DBForge, DBConfig, PoolConfig
 
