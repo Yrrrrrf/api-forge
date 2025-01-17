@@ -45,14 +45,10 @@ model_forge = ModelForge(
         'library',
     ],
 )
-# model_forge.log_schema_tables()
+model_forge.log_schema_tables()
 model_forge.log_schema_views()
 # model_forge.log_schema_fns()
 model_forge.log_metadata_stats()
-
-# print(type(model_forge))
-# print(type(model_forge.table_cache))
-# print(model_forge.table_cache)
 
 # ? Main API Forge -----------------------------------------------------------------------------------
 app: FastAPI = FastAPI()  # * Create a FastAPI app (needed when calling the script directly)
@@ -67,31 +63,12 @@ app_forge = Forge(  # * Create a Forge instance
     ),
 )
 # * The main forge store the app and creates routes for the models (w/ the static type checking)
+app_forge.gen_metadata_routes(model_forge)
+app_forge.gen_health_routes(model_forge)
+
 app_forge.gen_table_routes(model_forge)
 app_forge.gen_view_routes(model_forge)
-# api_forge.gen_fn_routes(model_forge)
-app_forge.gen_metadata_routes(model_forge)
-
-
-# # ^ Add the health route...
-# # ^ This is just a temporary route to check if the API is running...
-# # ^ Later on this route must be also available in the API Forge...
-# # todo: Add 'status' routes to the API Forge...
-# # todo: - '/status'
-# # todo: - '/status/db'
-# # todo: - '/status/api'
-# # todo: - '/status/app'
-# def add_app_routes():
-#     from fastapi import APIRouter
-
-#     app_router = APIRouter()
-    
-#     @app_router.get("/health")
-#     async def health(): return {"status": "healthy"}
-
-#     app.include_router(app_router)
-
-# add_app_routes()
+app_forge.gen_fn_routes(model_forge)
 
 
 if __name__ == "__main__":

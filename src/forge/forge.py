@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI
 
@@ -7,6 +8,7 @@ from typing import Dict, List
 from fastapi import APIRouter
 
 from forge.core.logging import bold, gray, cyan, underline, italic, green
+from forge.gen.health import *
 from forge.gen.metadata import *
 from forge.tools.model import ModelForge
 from forge.gen.view import gen_view_route
@@ -25,11 +27,6 @@ class ForgeInfo(BaseModel):
 
     def to_dict(self) -> dict: return self.model_dump()
 
-    # *  Sames as 'Rust's PartialEq trait' -> derive[(PartialEq)]
-    # def __eq__(self, other):
-    #     match isinstance(other, ForgeInfo):
-    #         case True: return self.to_dict() == other.to_dict()
-    #         case False: return False
 
 class UvicornConfig(BaseModel):
     """Configuration for Uvicorn server."""
@@ -106,6 +103,9 @@ class Forge(BaseModel):
                 router=self.routers[schema],
                 db_dependency=model_forge.db_manager.get_db,
             )
+
+        for schema in model_forge.include_schemas:
+            self.app.include_router(self.routers[schema])
     
     def gen_view_routes(self, model_forge: ModelForge) -> None:
         """Generate routes for all views."""
@@ -123,6 +123,9 @@ class Forge(BaseModel):
                 router=self.routers[f"{schema}_views"],
                 db_dependency=model_forge.db_manager.get_db
             )
+
+        for schema in model_forge.include_schemas:
+            self.app.include_router(self.routers[f"{schema}_views"])
     
     def gen_fn_routes(self, model_forge: ModelForge) -> None:
         """Generate routes for all functions."""
@@ -141,9 +144,9 @@ class Forge(BaseModel):
                 db_dependency=model_forge.db_manager.get_db
             )
 
-    def get_routers(self) -> List[APIRouter]:
-        """Return list of all routers."""
-        return list(self.routers.values())
+        # add the routers to the app
+        for schema in model_forge.include_schemas:
+            self.app.include_router(self.routers[f"{schema}_fn"])
 
     # * Metadata Routes
     def gen_metadata_routes(self, model_forge: ModelForge) -> None:
@@ -158,3 +161,21 @@ class Forge(BaseModel):
 
         # * Add the router to the app
         self.app.include_router(self.routers["metadata"])
+
+    # * Health Routes
+    def gen_health_routes(self, model_forge: ModelForge, start_time: datetime = datetime.now()) -> None:
+        """Include health routes for the app."""
+        h_str = "health"
+        self.routers[h_str] = APIRouter(prefix=f"/{h_str}", tags=["Health"])
+
+        print(f"\n{bold('[Generating Health Routes]')}")
+        [print(f"\t{gray(f'gen {h_str}:')} {bold(cyan(fn.__name__))}") for fn in [health_root, cache, clear_cache, ping]]
+
+        # Add health routes with start time
+        health_root(self.routers[h_str], model_forge, start_time)
+        cache(self.routers[h_str], model_forge, start_time)
+        clear_cache(self.routers[h_str], model_forge)
+        ping(self.routers[h_str])
+
+        # * Add the router to the app
+        self.app.include_router(self.routers["health"])
