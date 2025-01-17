@@ -47,7 +47,7 @@ model_forge = ModelForge(
 )
 model_forge.log_schema_tables()
 model_forge.log_schema_views()
-# model_forge.log_schema_fns()
+model_forge.log_schema_fns()
 model_forge.log_metadata_stats()
 
 # ? Main API Forge -----------------------------------------------------------------------------------
@@ -65,10 +65,10 @@ app_forge = Forge(  # * Create a Forge instance
 # * The main forge store the app and creates routes for the models (w/ the static type checking)
 app_forge.gen_metadata_routes(model_forge)
 app_forge.gen_health_routes(model_forge)
-
-app_forge.gen_table_routes(model_forge)
-app_forge.gen_view_routes(model_forge)
-app_forge.gen_fn_routes(model_forge)
+# * Route Generators... (table, view, function)
+app_forge.gen_table_routes(model_forge)  # * add db.table routes (ORM CRUD)
+app_forge.gen_view_routes(model_forge)  # * add db.view routes
+app_forge.gen_fn_routes(model_forge)  # * add db.[fn, proc, trigger] routes
 
 
 if __name__ == "__main__":

@@ -33,17 +33,11 @@ pip install api-forge
 Here's how to quickly set up an API with API Forge:
 
 ```python
+from fastapi import FastAPI
 from forge import *  # import mod prelude (main structures)
 
-# Initialize the main Forge application
-app_forge = Forge(
-    info=ForgeInfo(
-        PROJECT_NAME="MyAPI",
-        VERSION="1.0.0"
-    )
-)
-app = app_forge.app
 
+# ? DB Forge ----------------------------------------------------------------------------------
 # Configure database connection
 db_manager = DBForge(
     config=DBConfig(
@@ -62,24 +56,38 @@ db_manager = DBForge(
         )
     )
 )
+db_manager.log_metadata_stats()  # Log db metadata statistics
 
-# Initialize model management
+# ? Model Forge -------------------------------------------------------------------------------
 model_forge = ModelForge(
     db_manager=db_manager,
-    include_schemas=['public', 'app']
+    # * Define the schemas to include in the model...
+    include_schemas=['public', 'app', 'another_schema'],
+)
+model_forge.log_schema_tables()  # detailed log of the tables in the schema
+model_forge.log_schema_views()  # detailed log of the views in the schema
+model_forge.log_schema_fns()  # detailed log of the functions in the schema
+model_forge.log_metadata_stats()  # Log model metadata statistics
+
+
+# ? Main API Forge ----------------------------------------------------------------------------
+app: FastAPI = FastAPI()  # * Create a FastAPI app (needed when calling the script directly)
+
+app_forge = Forge(  # * Create a Forge instance
+    app=app,
+    info=ForgeInfo(
+        PROJECT_NAME="MyAPI",
+        VERSION="1.0.0"
+    )
 )
 
-# Set up API routes
-api_forge = APIForge(model_forge=model_forge)
-
-# Generate all routes
-# This will add the routes to it's respective router
-api_forge.gen_table_routes()  # CRUD routes for tables
-api_forge.gen_view_routes()   # Read routes for views
-api_forge.gen_fn_routes()     # Routes for database functions
-
-# Add the routes to the FastAPI app
-[app.include_router(r) for r in api_forge.get_routers()]
+# * The main forge store the app and creates routes for the models (w/ the static type checking)
+app_forge.gen_metadata_routes(model_forge)  # * add metadata routes (schemas, tables, views, fns)
+app_forge.gen_health_routes(model_forge)  # * add health check routes
+# * Route Generators... (table, view, function)
+app_forge.gen_table_routes(model_forge)  # * add db.table routes (ORM CRUD)
+app_forge.gen_view_routes(model_forge)  # * add db.view routes
+app_forge.gen_fn_routes(model_forge)  # * add db.[fn, proc, trigger] routes
 ```
 Then run the application using Uvicorn:
 ```bash
@@ -116,6 +124,18 @@ API Forge automatically generates the following types of routes:
 
 - `POST /{schema}/fn/{function}` - Execute function
 - `POST /{schema}/proc/{procedure}` - Execute procedure
+
+### Metadata Routes
+
+- `GET /dt/schemas` - List all database schemas and their structures
+- `GET /dt/{schema}/{{tables, views, fns}}` - List all tables, views, or functions in a schema
+
+### Health Check Routes
+
+- `GET /health` - Get API health status and version information
+- `GET /health/ping` - Basic connectivity check
+- `GET /health/cache` - Check metadata cache status
+- `POST /health/clear-cache` - Clear and reload metadata cache
 
 ## License
 

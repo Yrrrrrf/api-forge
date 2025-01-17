@@ -13,7 +13,7 @@ from forge.tools.sql_mapping import ArrayType, get_eq_type
 # ? Metadata for some function ---------------------------------------------------
 
 # ?.todo: Add some way to generalize this to more databases than just PostgreSQL
-class PostgresObjectType(str, Enum):
+class ObjectType(str, Enum):
     FUNCTION = "function"
     PROCEDURE = "procedure"
     TRIGGER = "trigger"
@@ -54,7 +54,7 @@ class FunctionMetadata(BaseModel):
     return_type: Optional[str] = None
     parameters: List[FunctionParameter] = Field(default_factory=list)
     type: FunctionType
-    object_type: PostgresObjectType
+    object_type: ObjectType
     volatility: FunctionVolatility
     security_type: SecurityType
     is_strict: bool
@@ -273,7 +273,7 @@ def load_fn(
                 return_type=row.return_type if row.return_type else 'void',
                 parameters=parameters,
                 type=fn_type,
-                object_type=PostgresObjectType(row.object_type),
+                object_type=ObjectType(row.object_type),
                 volatility=_get_volatility(row.volatility),
                 security_type=SecurityType.DEFINER if row.security_definer else SecurityType.INVOKER,
                 is_strict=row.is_strict,
@@ -385,7 +385,7 @@ def gen_fn_route(
     is_scalar = fn_metadata.type == FunctionType.SCALAR
 
     match fn_metadata.object_type:
-        case PostgresObjectType.PROCEDURE:
+        case ObjectType.PROCEDURE:
             @router.post(
                 f"/proc/{fn_metadata.name}",
                 response_model=None,
@@ -402,7 +402,7 @@ def gen_fn_route(
                     fn_name=fn_metadata.name,
                     schema=fn_metadata.schema
                 )
-        case PostgresObjectType.FUNCTION:
+        case ObjectType.FUNCTION:
             @router.post(
                 f"/fn/{fn_metadata.name}",
                 response_model=List[FunctionOutputModel] if is_set else FunctionOutputModel,
@@ -422,9 +422,9 @@ def gen_fn_route(
                     is_set=is_set,
                     is_scalar=is_scalar
                 )
-        case PostgresObjectType.TRIGGER: print("Trigger functions not yet supported")
-        case PostgresObjectType.AGGREGATE: print("Aggregate functions not yet supported")
-        case PostgresObjectType.WINDOW: print("Window functions not yet supported")
+        case ObjectType.TRIGGER: print("Trigger functions not yet supported")
+        case ObjectType.AGGREGATE: print("Aggregate functions not yet supported")
+        case ObjectType.WINDOW: print("Window functions not yet supported")
         case _: print("Unknown object type")
 
 def _execute_proc(

@@ -100,11 +100,15 @@ SQL_TYPE_MAPPING: Dict[str, Type] = {
 }
 
 def parse_array_type(sql_type: str) -> Type:
+    """Parse PostgreSQL array type into Python List type."""
     base_type = sql_type.replace('[]', '').strip()
     element_type = get_eq_type(base_type, nullable=False)
+    
+    # Handle Union types (like Optional)
     if hasattr(element_type, "__origin__") and element_type.__origin__ is Union:
         element_type = element_type.__args__[0]
-    return Dict[element_type]  # Return List directly
+    
+    return List[element_type]  # Return List type with proper element type
 
 def make_optional(type_: Type) -> Type:
     """Make a type optional if it isn't already"""
