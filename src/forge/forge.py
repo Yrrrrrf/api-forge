@@ -4,12 +4,13 @@ from fastapi import FastAPI
 
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Dict, List
+from typing import Dict
 from fastapi import APIRouter
 
 from forge.core.logging import bold, gray, cyan, underline, italic, green
 from forge.gen.health import *
 from forge.gen.metadata import *
+from forge.tools.db import DBForge
 from forge.tools.model import ModelForge
 from forge.gen.view import gen_view_route
 from forge.gen.table import gen_table_crud
@@ -27,37 +28,21 @@ class ForgeInfo(BaseModel):
 
     def to_dict(self) -> dict: return self.model_dump()
 
-
-class UvicornConfig(BaseModel):
-    """Configuration for Uvicorn server."""
-    host: str = Field(default="127.0.0.1", description="The host to run the server on")    
-    port: int = Field(default=8000, description="Port to bind to")
-    reload: bool = Field(default=True, description="Enable auto-reload")
-    workers: int = Field(default=1, description="Number of worker processes")
-    log_level: str = Field(default="info", description="Logging level")
-
 class Forge(BaseModel):
     info: ForgeInfo = Field(..., description="The information about the project")
     app: Optional[FastAPI] = Field(default=None, description="FastAPI application instance")
     routers: Dict[str, APIRouter] = Field(default_factory=dict)
     
-    uvicorn_config: UvicornConfig = Field(
-        default_factory=UvicornConfig,
-        description="Uvicorn server configuration"
-    )
-
     class Config:
         arbitrary_types_allowed = True
 
     def __init__(self, **data):
         super().__init__(**data)
         self._initialize_app()
-        self._print_welcome_message()
 
     def _initialize_app(self) -> None:
         """Initialize FastAPI app if not provided."""
         # todo: Check how to handle this properly... (if app is not provided)
-        # app = self.app or FastAPI()  # * this seams to be a better way...
 
         self.app.title = self.info.PROJECT_NAME
         self.app.version = self.info.VERSION
@@ -80,12 +65,9 @@ class Forge(BaseModel):
             allow_headers=["*"],
         )
 
-    def _print_welcome_message(self) -> None:
+    def print_welcome(self, db_manager: DBForge) -> None:
         """Print welcome message with app information."""
-        # todo: Somehow, make this message appear at the last...
-        # todo: ...after all the FastAPI app routes have been added
-        # ^ For now it appears at the beginning (the Forge instance creation)
-        print(f"\n\n{bold(self.info.PROJECT_NAME)} on {underline(italic(bold(green(f'http://{self.uvicorn_config.host}:{self.uvicorn_config.port}/docs'))))}\n\n")
+        print(f"\n\n{bold(self.info.PROJECT_NAME)} on {underline(italic(bold(green(f'http://{db_manager.config.host}:8000/docs'))))}\n\n")
 
     # * Route Generators... (table, view, function)
     def gen_table_routes(self, model_forge: ModelForge) -> None:
@@ -155,7 +137,7 @@ class Forge(BaseModel):
 
         print(f"\n{bold('[Generating Metadata Routes]')}")
 
-        for fn in [get_schemas,  get_tables, get_views, get_enums]:
+        for fn in [get_schemas,  get_tables, get_views, get_enums, get_functions, get_procedures, get_triggers]:
             print(f"\t{gray('gen metadata:')} {bold(cyan(fn.__name__))}")
             fn(self.routers["metadata"], model_forge)
 
@@ -173,8 +155,8 @@ class Forge(BaseModel):
 
         # Add health routes with start time
         health_root(self.routers[h_str], model_forge, start_time)
+        clear_cache(self.routers[h_str], model_forge, start_time)
         cache(self.routers[h_str], model_forge, start_time)
-        clear_cache(self.routers[h_str], model_forge)
         ping(self.routers[h_str])
 
         # * Add the router to the app

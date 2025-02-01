@@ -19,8 +19,8 @@ class ColumnMetadata(BaseModel):
     name: str  # column name
     type: str  # column type (SQL type)
     nullable: bool
-    isPrimaryKey: bool = False
-    isEnum: bool = False
+    is_pk: bool = False
+    is_enum: bool = False
     references: Optional[ColumnRef] = None
 
 class TableMetadata(BaseModel):
@@ -28,57 +28,6 @@ class TableMetadata(BaseModel):
     name: str
     schema: str
     columns: List[ColumnMetadata] = []
-
-class SchemaMetadata(BaseModel):
-    """Schema metadata matching TypeScript expectations"""
-    name: str
-    tables: Dict[str, TableMetadata] = {}
-
-def get_schemas(dt_router: APIRouter, model_forge: ModelForge):
-    @dt_router.get("/schemas", response_model=List[SchemaMetadata])
-    def get_schemas():
-        schemas = {}
-        for schema_name in model_forge.include_schemas:
-            schema_tables = {}
-            
-            # Collect all tables for this schema
-            for table_key, (table, _) in model_forge.table_cache.items():
-                if table.schema == schema_name:
-                    columns = []
-                    for col in table.columns:
-                        # Get reference if it's a foreign key
-                        ref = None
-                        if col.foreign_keys:
-                            fk = next(iter(col.foreign_keys))
-                            ref = ColumnRef(
-                                schema=fk.column.table.schema,
-                                table=fk.column.table.name,
-                                column=fk.column.name
-                            )
-                        
-                        # Create column metadata
-                        columns.append(ColumnMetadata(
-                            name=col.name,
-                            type=str(col.type),
-                            nullable=col.nullable,
-                            isPrimaryKey=col.primary_key,
-                            isEnum=col.type.__class__.__name__ == 'Enum',
-                            references=ref
-                        ))
-
-                    schema_tables[table.name] = TableMetadata(
-                        name=table.name,
-                        schema=schema_name,
-                        columns=columns
-                    )
-            
-            schemas[schema_name] = SchemaMetadata(
-                name=schema_name,
-                tables=schema_tables
-            )
-        
-        return list(schemas.values())
-
 
 # * TABLES SECTION
 
@@ -105,8 +54,8 @@ def get_tables(dt_router: APIRouter, model_forge: ModelForge):
                         name=col.name,
                         type=str(col.type),
                         nullable=col.nullable,
-                        isPrimaryKey=col.primary_key,
-                        isEnum=col.type.__class__.__name__ == 'Enum',
+                        is_pk=col.primary_key,
+                        is_enum=col.type.__class__.__name__ == 'Enum',
                         references=ref
                     ))
 
@@ -220,9 +169,9 @@ def get_functions(dt_router: APIRouter, model_forge: ModelForge):
     def get_schema_functions(schema: str):
         """Get all functions for a schema"""
         functions = []
-        
+
         # Regular functions
-        for fn_key, fn in model_forge.fn_cache.items():
+        for _, fn in model_forge.fn_cache.items():
             if fn.schema == schema:
                 # Convert parameters
                 params = [
@@ -368,3 +317,174 @@ def get_triggers(dt_router: APIRouter, model_forge: ModelForge):
         if not triggers:
             raise HTTPException(status_code=404, detail=f"No triggers found in schema '{schema}'")
         return triggers
+
+
+# * SCHEMA METADATA!
+
+# src/gen/metadata.py
+
+class SchemaMetadata(BaseModel):
+    """Schema metadata matching TypeScript expectations"""
+    name: str
+    tables: Dict[str, TableMetadata] = {}
+    views: Dict[str, ViewMetadata] = {}
+    enums: Dict[str, SimpleEnumInfo] = {}
+    functions: Dict[str, FunctionMetadataResponse] = {}
+    procedures: Dict[str, FunctionMetadataResponse] = {}
+    triggers: Dict[str, TriggerMetadataResponse] = {}
+
+def get_schemas(dt_router: APIRouter, model_forge: ModelForge):
+    @dt_router.get("/schemas", response_model=List[SchemaMetadata])
+    # todo: Add some query parameters to filter schemas!!!
+    # todo: Add some query parameters to filter schemas!!!
+    # todo: Add some query parameters to filter schemas!!!
+    # def get_schemas(schema: Optional[str] = None):
+    def get_schemas():
+        """Get all schemas with their metadata"""
+        schemas = []
+        for schema_name in model_forge.include_schemas:
+            # Tables processing remains the same
+            schema_tables = {
+                table_key.split('.')[1]: TableMetadata(
+                    name=table_key.split('.')[1],
+                    schema=schema_name,
+                    columns=[
+                        ColumnMetadata(
+                            name=col.name,
+                            type=str(col.type),
+                            nullable=col.nullable,
+                            is_pk=col.primary_key,
+                            is_enum=col.type.__class__.__name__ == 'Enum',
+                            references=ColumnRef(
+                                schema=next(iter(col.foreign_keys)).column.table.schema,
+                                table=next(iter(col.foreign_keys)).column.table.name,
+                                column=next(iter(col.foreign_keys)).column.name
+                            ) if col.foreign_keys else None
+                        )
+                        for col in table_data[0].columns
+                    ]
+                )
+                for table_key, table_data in model_forge.table_cache.items()
+                if table_key.split('.')[0] == schema_name
+            }
+
+            # Views processing remains the same
+            schema_views = {
+                view_key.split('.')[1]: ViewMetadata(
+                    name=view_key.split('.')[1],
+                    schema=schema_name,
+                    viewColumns=[
+                        ViewColumnMetadata(
+                            name=col.name,
+                            type=str(col.type),
+                            nullable=col.nullable
+                        )
+                        for col in view_data[0].columns
+                    ]
+                )
+                for view_key, view_data in model_forge.view_cache.items()
+                if view_key.split('.')[0] == schema_name
+            }
+
+            # Enums processing remains the same
+            schema_enums = {
+                enum_name: SimpleEnumInfo(
+                    name=enum_info.name,
+                    schema=enum_info.schema,
+                    values=enum_info.values
+                )
+                for enum_name, enum_info in model_forge.enum_cache.items()
+                if enum_info.schema == schema_name
+            }
+
+            # Functions processing
+            schema_functions = {
+                fn_name.split('.')[1]: FunctionMetadataResponse(
+                    name=fn_metadata.name,
+                    schema=fn_metadata.schema,
+                    object_type=fn_metadata.object_type,
+                    type=fn_metadata.type,
+                    description=fn_metadata.description,
+                    parameters=[
+                        FunctionParameterMetadata(
+                            name=p.name,
+                            type=p.type,
+                            mode=p.mode,
+                            has_default=p.has_default,
+                            default_value=str(p.default_value) if p.default_value else None
+                        ) for p in fn_metadata.parameters
+                    ],
+                    return_type=fn_metadata.return_type,
+                    return_columns=None,  # Add if needed
+                    is_strict=fn_metadata.is_strict
+                )
+                for fn_name, fn_metadata in model_forge.fn_cache.items()
+                if fn_name.split('.')[0] == schema_name
+            }
+
+            # Procedures processing
+            schema_procedures = {
+                proc_name.split('.')[1]: FunctionMetadataResponse(
+                    name=proc_metadata.name,
+                    schema=proc_metadata.schema,
+                    object_type=proc_metadata.object_type,
+                    type=proc_metadata.type,
+                    description=proc_metadata.description,
+                    parameters=[
+                        FunctionParameterMetadata(
+                            name=p.name,
+                            type=p.type,
+                            mode=p.mode,
+                            has_default=p.has_default,
+                            default_value=str(p.default_value) if p.default_value else None
+                        ) for p in proc_metadata.parameters
+                    ],
+                    is_strict=proc_metadata.is_strict
+                )
+                for proc_name, proc_metadata in model_forge.proc_cache.items()
+                if proc_name.split('.')[0] == schema_name
+            }
+
+            # Triggers processing
+            schema_triggers = {
+                trig_name.split('.')[1]: TriggerMetadataResponse(
+                    name=trig_metadata.name,
+                    schema=trig_metadata.schema,
+                    object_type=trig_metadata.object_type,
+                    type=trig_metadata.type,
+                    description=trig_metadata.description,
+                    parameters=[
+                        FunctionParameterMetadata(
+                            name=p.name,
+                            type=p.type,
+                            mode=p.mode,
+                            has_default=p.has_default,
+                            default_value=str(p.default_value) if p.default_value else None
+                        ) for p in trig_metadata.parameters
+                    ],
+                    is_strict=trig_metadata.is_strict,
+                    trigger_data=TriggerEventMetadata(
+                        timing="AFTER",  # Default timing
+                        events=["UPDATE"],  # Default events
+                        table_schema=schema_name,
+                        table_name=""  # You'll need to extract this from metadata
+                    )
+                )
+                for trig_name, trig_metadata in model_forge.trig_cache.items()
+                if trig_name.split('.')[0] == schema_name
+            }
+
+            schema_metadata = SchemaMetadata(
+                name=schema_name,
+                tables=schema_tables,
+                views=schema_views,
+                enums=schema_enums,
+                functions=schema_functions,
+                procedures=schema_procedures,
+                triggers=schema_triggers
+            )
+            schemas.append(schema_metadata)
+
+        if not schemas:
+            raise HTTPException(status_code=404, detail="No schemas found")
+        return schemas

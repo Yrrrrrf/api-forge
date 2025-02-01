@@ -64,12 +64,13 @@ app_forge = Forge(  # * Create a Forge instance
 )
 # * The main forge store the app and creates routes for the models (w/ the static type checking)
 app_forge.gen_metadata_routes(model_forge)
-app_forge.gen_health_routes(model_forge)
+app_forge.gen_health_routes(model_forge)  # * add health and cache routes
 # * Route Generators... (table, view, function)
 app_forge.gen_table_routes(model_forge)  # * add db.table routes (ORM CRUD)
 app_forge.gen_view_routes(model_forge)  # * add db.view routes
 app_forge.gen_fn_routes(model_forge)  # * add db.[fn, proc, trigger] routes
 
+app_forge.print_welcome(db_manager=db_manager)  # * Print the welcome message (with the FastAPI docs link)
 
 if __name__ == "__main__":
     import uvicorn  # import uvicorn for running the FastAPI app

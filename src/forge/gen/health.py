@@ -10,27 +10,42 @@ class HealthStatus(BaseModel):
     version: str
     uptime: float
     database: bool
-    environment: str
     
-def health_root(dt_router: APIRouter, model_forge: ModelForge, start_time: datetime):
+from pydantic import BaseModel, Field
+
+class HealthStatus(BaseModel):
+    """Health status response model"""
+    status: str = Field(..., description="Current health status")
+    timestamp: datetime = Field(..., description="Current timestamp")
+    version: str = Field(..., description="API version")
+    uptime: float = Field(..., description="Server uptime in seconds")
+    # database: bool = Field(..., description="Database connection status")
+    # environment: str = Field(..., description="Current environment")
+
+def health_root(
+    dt_router: APIRouter, 
+    model_forge: ModelForge, 
+    start_time: datetime,
+    environment: str = "development"
+):
+    def check_db_connection() -> bool:
+        try:
+            model_forge.db_manager.exec_raw_sql("SELECT 1")
+            return True
+        except Exception:
+            return False
+
     @dt_router.get("", response_model=HealthStatus)
     def health_check():
         """Basic health check endpoint"""
-        is_db_connected = True
-        try:
-            # Test database connection
-            with model_forge.db_manager.get_session() as session:
-                session.execute("SELECT 1")
-        except Exception:
-            is_db_connected = False
-        
+        is_connected = check_db_connection()
         return HealthStatus(
-            status="healthy" if is_db_connected else "degraded",
+            status="healthy" if is_connected else "degraded",
             timestamp=datetime.now(),
             version=model_forge.db_manager.get_db_version(),
             uptime=(datetime.now() - start_time).total_seconds(),
-            database=is_db_connected,
-            environment="development"  # You might want to make this configurable
+            # database=is_connected,  # Add database status
+            # environment=environment  # Add environment
         )
 
 
@@ -71,15 +86,12 @@ def cache(dt_router: APIRouter, model_forge: ModelForge, start_time: datetime):
             triggers_cached=counter[5],
         )
 
-def clear_cache(dt_router: APIRouter, model_forge: ModelForge):
+def clear_cache(dt_router: APIRouter, model_forge: ModelForge, start_time: datetime):
     @dt_router.post("/clear-cache")
     def clear_cache():
         """Clear and reload all metadata caches"""
         try:
-            model_forge._load_models()
-            model_forge._load_enums()
-            model_forge._load_views()
-            model_forge._load_fn()
+            # 
             return {
                 "status": "success", 
                 "message": "Cache cleared and reloaded"

@@ -241,19 +241,37 @@ def load_fn(
         return FunctionType.SCALAR
 
     def _parse_parameters(args_str: str) -> List[FunctionParameter]:
+        """Parse function/procedure parameters from PostgreSQL argument string.
+        
+        Handles both formats:
+        - Function: "param_name param_type"
+        - Procedure: "IN/OUT param_name param_type"
+        """
         if not args_str:
             return []
         
         parameters = []
         for arg in args_str.split(", "):
-            parts = arg.split(" ")
-            if len(parts) >= 2:
+            parts = arg.split()
+            
+            # Handle different parameter formats
+            if parts[0].upper() in ("IN", "OUT", "INOUT", "VARIADIC"):
+                # Procedure format: "IN param_name param_type"
+                mode = parts[0].upper()
+                param_name = parts[1]
+                param_type = " ".join(parts[2:])
+            else:
+                # Function format: "param_name param_type"
+                mode = "IN"  # Default mode
                 param_name = parts[0]
                 param_type = " ".join(parts[1:])
-                parameters.append(FunctionParameter(
-                    name=param_name,
-                    type=param_type
-                ))
+            
+            parameters.append(FunctionParameter(
+                name=param_name,
+                type=param_type,
+                mode=mode
+            ))
+        
         return parameters
 
     with next(db_dependency()) as db:
