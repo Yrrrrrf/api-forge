@@ -6,6 +6,8 @@ from forge.gen.enum import EnumInfo
 from forge.gen.fn import FunctionType, ObjectType
 from forge.tools.model import ModelForge
 
+from sqlalchemy.types import Enum as SAEnum
+
 # --- Data Models (unchanged) ---
 
 class ColumnRef(BaseModel):
@@ -81,8 +83,15 @@ class SchemaMetadata(BaseModel):
     triggers: Dict[str, TriggerMetadataResponse] = {}
 
 # --- Helper Functions ---
-def build_column_metadata(col) -> ColumnMetadata:
-    """Convert a column object to ColumnMetadata."""
+# Import Any if you don't have a more specific type for 'col'
+from typing import Any
+
+def build_column_metadata(col: Any) -> ColumnMetadata:
+    """Convert a column object to ColumnMetadata with proper typing and optional values.
+    
+    If the column is not a primary key or not an enum, the corresponding fields will be None,
+    so that when converting to JSON (with exclude_none=True) they are omitted.
+    """
     ref = None
     if col.foreign_keys:
         fk = next(iter(col.foreign_keys))
@@ -91,14 +100,17 @@ def build_column_metadata(col) -> ColumnMetadata:
             table=fk.column.table.name,
             column=fk.column.name
         )
+    # Then in your helper:
+    # Use None instead of False so that these fields don't appear in the JSON output.
     return ColumnMetadata(
         name=col.name,
         type=str(col.type),
         nullable=col.nullable,
-        is_pk=col.primary_key,
-        is_enum=col.type.__class__.__name__ == 'Enum',
+        is_pk=True if col.primary_key else None,  # Only include if True
+        is_enum=True if isinstance(col.type, SAEnum) else None,
         references=ref
     )
+
 
 def build_table_metadata(name: str, table, schema: str) -> TableMetadata:
     """Convert a table (or view) object to TableMetadata using its columns."""
@@ -108,7 +120,7 @@ def build_table_metadata(name: str, table, schema: str) -> TableMetadata:
         columns=[build_column_metadata(col) for col in table.columns]
     )
 
-def build_function_param_metadata(p) -> FunctionParameterMetadata:
+def build_function_param_metadata(p: Any) -> FunctionParameterMetadata:
     """Convert a function parameter to FunctionParameterMetadata."""
     return FunctionParameterMetadata(
         name=p.name,
@@ -163,9 +175,10 @@ def parse_trigger_event(trig, default_schema: str) -> TriggerEventMetadata:
 # --- Endpoint Functions (Refactored) ---
 
 def get_tables(dt_router: APIRouter, model_forge: ModelForge):
+    from fastapi.encoders import jsonable_encoder
+
     @dt_router.get("/{schema}/tables", response_model=List[TableMetadata])
     def get_tables_by_schema(schema: str):
-        # Use a list comprehension with the helper to build each table's metadata
         tables = [
             build_table_metadata(table.name, table, schema)
             for table, _ in model_forge.table_cache.values()
@@ -173,7 +186,9 @@ def get_tables(dt_router: APIRouter, model_forge: ModelForge):
         ]
         if not tables:
             raise HTTPException(status_code=404, detail=f"Schema '{schema}' not found")
-        return tables
+        # This encoder will exclude fields set to None (i.e. is_pk and is_enum if not true)
+        return jsonable_encoder(tables, exclude_none=True)
+
 
 def get_views(dt_router: APIRouter, model_forge: ModelForge):
     @dt_router.get("/{schema}/views", response_model=List[TableMetadata])
