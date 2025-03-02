@@ -1,7 +1,15 @@
-# API Forge
+<h1 align="center">
+  <div align="center">API Forge</div>
+</h1>
 
-[![PyPI version](https://badge.fury.io/py/api-forge.svg)](https://badge.fury.io/py/api-forge)
-[![Documentation Status](https://readthedocs.org/projects/api-forge/badge/?version=latest)](https://api-forge.readthedocs.io/en/latest/?badge=latest)
+<div align="center">
+
+[![PyPI version](https://img.shields.io/pypi/v/api-forge)](https://pypi.org/project/api-forge/)
+[![GitHub: API Forge](https://img.shields.io/badge/GitHub-API%20Forge-181717?logo=github)](https://github.com/Yrrrrrf/api-forge)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://choosealicense.com/licenses/mit/)
+[![Downloads](https://pepy.tech/badge/api-forge)](https://pepy.tech/project/api-forge)
+
+</div>
 
 ## Overview
 

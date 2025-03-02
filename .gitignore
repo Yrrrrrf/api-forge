@@ -135,3 +135,6 @@ hcd/*
 
 # Compiled Python files
 .pypirc
+
+# uv pkg manager...
+uv.lock
