@@ -10,14 +10,18 @@ from sqlalchemy.types import Enum as SAEnum
 
 # --- Data Models (unchanged) ---
 
+
 class ColumnRef(BaseModel):
     """Reference to another column"""
+
     schema: str
     table: str
     column: str
 
+
 class ColumnMetadata(BaseModel):
     """Column metadata matching TypeScript expectations"""
+
     name: str  # column name
     type: str  # column type (SQL type)
     nullable: bool
@@ -25,32 +29,42 @@ class ColumnMetadata(BaseModel):
     is_enum: Optional[bool] = None
     references: Optional[ColumnRef] = None
 
+
 class TableMetadata(BaseModel):
     """Table metadata matching TypeScript expectations"""
+
     name: str
     schema: str
     columns: List[ColumnMetadata] = []
 
+
 class SimpleEnumInfo(BaseModel):
     """Store simplified enum information for metadata endpoints"""
+
     name: str
     values: List[str]
 
+
 class FunctionParameterMetadata(BaseModel):
     """Parameter information for functions/procedures"""
+
     name: str
     type: str
     mode: str = "IN"  # IN, OUT, INOUT, VARIADIC
     has_default: bool = False
     default_value: Optional[str] = None
 
+
 class ReturnColumnMetadata(BaseModel):
     """For TABLE and complex return types"""
+
     name: str
     type: str
 
+
 class FunctionMetadataResponse(BaseModel):
     """Common metadata for all function types"""
+
     name: str
     schema: str
     object_type: ObjectType
@@ -61,19 +75,25 @@ class FunctionMetadataResponse(BaseModel):
     return_columns: Optional[List[ReturnColumnMetadata]] = None
     is_strict: bool = False
 
+
 class TriggerEventMetadata(BaseModel):
     """Additional metadata specific to triggers"""
+
     timing: str  # BEFORE, AFTER, INSTEAD OF
     events: List[str]  # INSERT, UPDATE, DELETE, TRUNCATE
     table_schema: str
     table_name: str
 
+
 class TriggerMetadataResponse(FunctionMetadataResponse):
     """Extended metadata for triggers"""
+
     trigger_data: TriggerEventMetadata
+
 
 class SchemaMetadata(BaseModel):
     """Schema metadata matching TypeScript expectations"""
+
     name: str
     tables: Dict[str, TableMetadata] = {}
     views: Dict[str, TableMetadata] = {}
@@ -82,13 +102,15 @@ class SchemaMetadata(BaseModel):
     procedures: Dict[str, FunctionMetadataResponse] = {}
     triggers: Dict[str, TriggerMetadataResponse] = {}
 
+
 # --- Helper Functions ---
 # Import Any if you don't have a more specific type for 'col'
 from typing import Any
 
+
 def build_column_metadata(col: Any) -> ColumnMetadata:
     """Convert a column object to ColumnMetadata with proper typing and optional values.
-    
+
     If the column is not a primary key or not an enum, the corresponding fields will be None,
     so that when converting to JSON (with exclude_none=True) they are omitted.
     """
@@ -98,7 +120,7 @@ def build_column_metadata(col: Any) -> ColumnMetadata:
         ref = ColumnRef(
             schema=fk.column.table.schema,
             table=fk.column.table.name,
-            column=fk.column.name
+            column=fk.column.name,
         )
     # Then in your helper:
     # Use None instead of False so that these fields don't appear in the JSON output.
@@ -108,7 +130,7 @@ def build_column_metadata(col: Any) -> ColumnMetadata:
         nullable=col.nullable,
         is_pk=True if col.primary_key else None,  # Only include if True
         is_enum=True if isinstance(col.type, SAEnum) else None,
-        references=ref
+        references=ref,
     )
 
 
@@ -117,8 +139,9 @@ def build_table_metadata(name: str, table, schema: str) -> TableMetadata:
     return TableMetadata(
         name=name,
         schema=schema,
-        columns=[build_column_metadata(col) for col in table.columns]
+        columns=[build_column_metadata(col) for col in table.columns],
     )
+
 
 def build_function_param_metadata(p: Any) -> FunctionParameterMetadata:
     """Convert a function parameter to FunctionParameterMetadata."""
@@ -127,8 +150,9 @@ def build_function_param_metadata(p: Any) -> FunctionParameterMetadata:
         type=p.type,
         mode=p.mode,
         has_default=p.has_default,
-        default_value=str(p.default_value) if p.default_value else None
+        default_value=str(p.default_value) if p.default_value else None,
     )
+
 
 def build_function_metadata(fn) -> FunctionMetadataResponse:
     """Convert a function/procedure object to FunctionMetadataResponse."""
@@ -150,8 +174,9 @@ def build_function_metadata(fn) -> FunctionMetadataResponse:
         parameters=params,
         return_type=fn.return_type,
         return_columns=return_cols,
-        is_strict=fn.is_strict
+        is_strict=fn.is_strict,
     )
+
 
 def parse_trigger_event(trig, default_schema: str) -> TriggerEventMetadata:
     """Parse trigger event metadata from trigger description, with defaults."""
@@ -166,13 +191,12 @@ def parse_trigger_event(trig, default_schema: str) -> TriggerEventMetadata:
             else:
                 table_name = table_ref
     return TriggerEventMetadata(
-        timing=timing,
-        events=events,
-        table_schema=table_schema,
-        table_name=table_name
+        timing=timing, events=events, table_schema=table_schema, table_name=table_name
     )
 
+
 # --- Endpoint Functions (Refactored) ---
+
 
 def get_tables(dt_router: APIRouter, model_forge: ModelForge):
     from fastapi.encoders import jsonable_encoder
@@ -199,8 +223,11 @@ def get_views(dt_router: APIRouter, model_forge: ModelForge):
             if view_schema == schema:
                 views.append(build_table_metadata(view_name, view_table, schema))
         if not views:
-            raise HTTPException(status_code=404, detail=f"No views found in schema '{schema}'")
+            raise HTTPException(
+                status_code=404, detail=f"No views found in schema '{schema}'"
+            )
         return views
+
 
 def get_enums(dt_router: APIRouter, model_forge: ModelForge):
     @dt_router.get("/{schema}/enums", response_model=List[SimpleEnumInfo])
@@ -211,8 +238,11 @@ def get_enums(dt_router: APIRouter, model_forge: ModelForge):
             if enum_info.schema == schema
         ]
         if not enums:
-            raise HTTPException(status_code=404, detail=f"No enums found in schema '{schema}'")
+            raise HTTPException(
+                status_code=404, detail=f"No enums found in schema '{schema}'"
+            )
         return enums
+
 
 def get_functions(dt_router: APIRouter, model_forge: ModelForge):
     @dt_router.get("/{schema}/functions", response_model=List[FunctionMetadataResponse])
@@ -223,11 +253,16 @@ def get_functions(dt_router: APIRouter, model_forge: ModelForge):
             if fn.schema == schema
         ]
         if not functions:
-            raise HTTPException(status_code=404, detail=f"No functions found in schema '{schema}'")
+            raise HTTPException(
+                status_code=404, detail=f"No functions found in schema '{schema}'"
+            )
         return functions
 
+
 def get_procedures(dt_router: APIRouter, model_forge: ModelForge):
-    @dt_router.get("/{schema}/procedures", response_model=List[FunctionMetadataResponse])
+    @dt_router.get(
+        "/{schema}/procedures", response_model=List[FunctionMetadataResponse]
+    )
     def get_proc_by_schema(schema: str):
         procedures = [
             build_function_metadata(proc)
@@ -235,8 +270,11 @@ def get_procedures(dt_router: APIRouter, model_forge: ModelForge):
             if proc.schema == schema
         ]
         if not procedures:
-            raise HTTPException(status_code=404, detail=f"No procedures found in schema '{schema}'")
+            raise HTTPException(
+                status_code=404, detail=f"No procedures found in schema '{schema}'"
+            )
         return procedures
+
 
 def get_triggers(dt_router: APIRouter, model_forge: ModelForge):
     @dt_router.get("/{schema}/triggers", response_model=List[TriggerMetadataResponse])
@@ -250,14 +288,17 @@ def get_triggers(dt_router: APIRouter, model_forge: ModelForge):
                 description=trig.description,
                 parameters=[build_function_param_metadata(p) for p in trig.parameters],
                 is_strict=trig.is_strict,
-                trigger_data=parse_trigger_event(trig, schema)
+                trigger_data=parse_trigger_event(trig, schema),
             )
             for trig in model_forge.trig_cache.values()
             if trig.schema == schema
         ]
         if not triggers:
-            raise HTTPException(status_code=404, detail=f"No triggers found in schema '{schema}'")
+            raise HTTPException(
+                status_code=404, detail=f"No triggers found in schema '{schema}'"
+            )
         return triggers
+
 
 def get_schemas(dt_router: APIRouter, model_forge: ModelForge):
     @dt_router.get("/schemas", response_model=List[SchemaMetadata])
@@ -265,14 +306,18 @@ def get_schemas(dt_router: APIRouter, model_forge: ModelForge):
         schemas = []
         for schema_name in model_forge.include_schemas:
             schema_tables = {
-                key.split('.')[1]: build_table_metadata(key.split('.')[1], table_data[0], schema_name)
+                key.split(".")[1]: build_table_metadata(
+                    key.split(".")[1], table_data[0], schema_name
+                )
                 for key, table_data in model_forge.table_cache.items()
-                if key.split('.')[0] == schema_name
+                if key.split(".")[0] == schema_name
             }
             schema_views = {
-                key.split('.')[1]: build_table_metadata(key.split('.')[1], view_table, schema_name)
+                key.split(".")[1]: build_table_metadata(
+                    key.split(".")[1], view_table, schema_name
+                )
                 for key, (view_table, _) in model_forge.view_cache.items()
-                if key.split('.')[0] == schema_name
+                if key.split(".")[0] == schema_name
             }
             schema_enums = {
                 enum_name: SimpleEnumInfo(name=enum_info.name, values=enum_info.values)
@@ -280,44 +325,49 @@ def get_schemas(dt_router: APIRouter, model_forge: ModelForge):
                 if enum_info.schema == schema_name
             }
             schema_functions = {
-                key.split('.')[1]: build_function_metadata(fn_metadata)
+                key.split(".")[1]: build_function_metadata(fn_metadata)
                 for key, fn_metadata in model_forge.fn_cache.items()
-                if key.split('.')[0] == schema_name
+                if key.split(".")[0] == schema_name
             }
             schema_procedures = {
-                key.split('.')[1]: build_function_metadata(proc_metadata)
+                key.split(".")[1]: build_function_metadata(proc_metadata)
                 for key, proc_metadata in model_forge.proc_cache.items()
-                if key.split('.')[0] == schema_name
+                if key.split(".")[0] == schema_name
             }
             # For triggers, we use default event metadata (as per your original code)
             schema_triggers = {
-                key.split('.')[1]: TriggerMetadataResponse(
+                key.split(".")[1]: TriggerMetadataResponse(
                     name=trig_metadata.name,
                     schema=trig_metadata.schema,
                     object_type=trig_metadata.object_type,
                     type=trig_metadata.type,
                     description=trig_metadata.description,
-                    parameters=[build_function_param_metadata(p) for p in trig_metadata.parameters],
+                    parameters=[
+                        build_function_param_metadata(p)
+                        for p in trig_metadata.parameters
+                    ],
                     is_strict=trig_metadata.is_strict,
                     trigger_data=TriggerEventMetadata(
                         timing="AFTER",
                         events=["UPDATE"],
                         table_schema=schema_name,
-                        table_name=""
-                    )
+                        table_name="",
+                    ),
                 )
                 for key, trig_metadata in model_forge.trig_cache.items()
-                if key.split('.')[0] == schema_name
+                if key.split(".")[0] == schema_name
             }
-            schemas.append(SchemaMetadata(
-                name=schema_name,
-                tables=schema_tables,
-                views=schema_views,
-                enums=schema_enums,
-                functions=schema_functions,
-                procedures=schema_procedures,
-                triggers=schema_triggers
-            ))
+            schemas.append(
+                SchemaMetadata(
+                    name=schema_name,
+                    tables=schema_tables,
+                    views=schema_views,
+                    enums=schema_enums,
+                    functions=schema_functions,
+                    procedures=schema_procedures,
+                    triggers=schema_triggers,
+                )
+            )
         if not schemas:
             raise HTTPException(status_code=404, detail="No schemas found")
         return schemas

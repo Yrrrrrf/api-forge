@@ -15,7 +15,7 @@ from sqlalchemy.ext.declarative import declared_attr
 
 class BaseSQLModel(DeclarativeBase):
     """Base class for all generated SQLAlchemy models."""
-    
+
     @declared_attr
     def __tablename__(cls) -> str:
         """Generate table name from class name."""
@@ -24,9 +24,8 @@ class BaseSQLModel(DeclarativeBase):
     @classmethod
     def get_fields(cls) -> Dict[str, Any]:
         """Get all model fields."""
-        return {
-            column.name: column for column in cls.__table__.columns
-        }
+        return {column.name: column for column in cls.__table__.columns}
+
 
 def load_tables(
     metadata: MetaData,
@@ -35,16 +34,19 @@ def load_tables(
     exclude_tables: List[str] = [],
 ) -> Dict[str, Tuple[Table, Tuple[Type[BaseModel], Type[BaseSQLModel]]]]:
     """Generate and return both Pydantic and SQLAlchemy models for tables."""
-    model_cache: Dict[str, Tuple[Table, Tuple[Type[BaseModel], Type[BaseSQLModel]]]] = {}
-    
+    model_cache: Dict[
+        str, Tuple[Table, Tuple[Type[BaseModel], Type[BaseSQLModel]]]
+    ] = {}
+
     for schema in metadata._schemas:
         if schema not in include_schemas:
             continue
 
         for table in metadata.tables.values():
-            if (table.name in inspect(engine).get_table_names(schema=schema) and 
-                table.name not in exclude_tables):
-                
+            if (
+                table.name in inspect(engine).get_table_names(schema=schema)
+                and table.name not in exclude_tables
+            ):
                 # todo: Optimize this to get a sample row from the table...
                 sample_data = {}
                 fields = {}
@@ -52,45 +54,61 @@ def load_tables(
                     column_type = str(column.type)
                     field_type = get_eq_type(
                         column_type,
-                        sample_data.get(column.name) if 'jsonb' in column_type.lower() else None,
-                        nullable=column.nullable
+                        sample_data.get(column.name)
+                        if "jsonb" in column_type.lower()
+                        else None,
+                        nullable=column.nullable,
                     )
-                    
+
                     match field_type:
                         case _ if isinstance(field_type, JSONBType):
                             model = field_type.get_model(f"{table.name}_{column.name}")
-                            if sample_data.get(column.name) and isinstance(sample_data[column.name], list):
+                            if sample_data.get(column.name) and isinstance(
+                                sample_data[column.name], list
+                            ):
                                 fields[column.name] = (
-                                    List[model] if not column.nullable else Optional[List[model]],
-                                    Field(default_factory=list if not column.nullable else None)
+                                    List[model]
+                                    if not column.nullable
+                                    else Optional[List[model]],
+                                    Field(
+                                        default_factory=list
+                                        if not column.nullable
+                                        else None
+                                    ),
                                 )
                             else:
                                 fields[column.name] = (
                                     model if not column.nullable else Optional[model],
-                                    Field(default=... if not column.nullable else None)
+                                    Field(default=... if not column.nullable else None),
                                 )
                         case _ if isinstance(field_type, ArrayType):
                             fields[column.name] = (
-                                List[field_type.item_type] if not column.nullable else Optional[List[field_type.item_type]],
-                                Field(default_factory=list if not column.nullable else None)
+                                List[field_type.item_type]
+                                if not column.nullable
+                                else Optional[List[field_type.item_type]],
+                                Field(
+                                    default_factory=list
+                                    if not column.nullable
+                                    else None
+                                ),
                             )
                         case _:
                             fields[column.name] = (
-                                field_type if not column.nullable else Optional[field_type],
-                                Field(default=... if not column.nullable else None)
+                                field_type
+                                if not column.nullable
+                                else Optional[field_type],
+                                Field(default=... if not column.nullable else None),
                             )
 
                 # Create Pydantic model with explicit configuration
                 model_config = ConfigDict(
                     from_attributes=True,
                     arbitrary_types_allowed=True,
-                    populate_by_name=True
+                    populate_by_name=True,
                 )
 
                 pydantic_model = create_model(
-                    f"Pydantic_{table.name}",
-                    __config__=model_config,
-                    **fields
+                    f"Pydantic_{table.name}", __config__=model_config, **fields
                 )
 
                 # Create SQLAlchemy model
@@ -98,15 +116,19 @@ def load_tables(
                     f"SQLAlchemy_{table.name.lower()}",
                     (BaseSQLModel,),
                     {
-                        '__table__': table,
-                        '__tablename__': table.name,
-                        'model_config': model_config
-                    }
+                        "__table__": table,
+                        "__tablename__": table.name,
+                        "model_config": model_config,
+                    },
                 )
 
-                model_cache[f"{schema}.{table.name}"] = (table, (pydantic_model, sqlalchemy_model))
-    
+                model_cache[f"{schema}.{table.name}"] = (
+                    table,
+                    (pydantic_model, sqlalchemy_model),
+                )
+
     return model_cache
+
 
 def gen_table_crud(
     table_data: Tuple[Table, Tuple[Type[BaseModel], Type[BaseSQLModel]]],
@@ -115,7 +137,7 @@ def gen_table_crud(
 ) -> None:
     """
     Generate CRUD routes for a database table.
-    
+
     Args:
         table_data: Tuple containing (Table, (PydanticModel, SQLAlchemyModel))
         router: FastAPI router instance
@@ -129,5 +151,5 @@ def gen_table_crud(
         pydantic_model=pydantic_model,
         sqlalchemy_model=sqlalchemy_model,
         router=router,
-        db_dependency=db_dependency
+        db_dependency=db_dependency,
     ).generate_all()

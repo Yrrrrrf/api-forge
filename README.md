@@ -1,3 +1,9 @@
+<h2 align="center">⚠️ DEPRECATION NOTICE ⚠️</h2>
+
+<p align="center">
+This package has been deprecated in favor of <a href="https://github.com/Yrrrrrf/prism-py">prism-py</a>, which provides improved functionality, better architecture, and continued maintenance.
+</p>
+
 <h1 align="center">
   <div align="center">API Forge</div>
 </h1>

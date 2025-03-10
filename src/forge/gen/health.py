@@ -4,17 +4,21 @@ from fastapi import APIRouter, Response
 
 from forge.tools.model import ModelForge
 
+
 class HealthStatus(BaseModel):
     status: str
     timestamp: datetime
     version: str
     uptime: float
     database: bool
-    
+
+
 from pydantic import BaseModel, Field
+
 
 class HealthStatus(BaseModel):
     """Health status response model"""
+
     status: str = Field(..., description="Current health status")
     timestamp: datetime = Field(..., description="Current timestamp")
     version: str = Field(..., description="API version")
@@ -22,11 +26,12 @@ class HealthStatus(BaseModel):
     # database: bool = Field(..., description="Database connection status")
     # environment: str = Field(..., description="Current environment")
 
+
 def health_root(
-    dt_router: APIRouter, 
-    model_forge: ModelForge, 
+    dt_router: APIRouter,
+    model_forge: ModelForge,
     start_time: datetime,
-    environment: str = "development"
+    environment: str = "development",
 ):
     def check_db_connection() -> bool:
         try:
@@ -59,6 +64,7 @@ class CacheStatus(BaseModel):
     procedures_cached: int
     triggers_cached: int
 
+
 def cache(dt_router: APIRouter, model_forge: ModelForge, start_time: datetime):
     @dt_router.get("/cache", response_model=CacheStatus)
     def cache_status():
@@ -86,21 +92,17 @@ def cache(dt_router: APIRouter, model_forge: ModelForge, start_time: datetime):
             triggers_cached=counter[5],
         )
 
+
 def clear_cache(dt_router: APIRouter, model_forge: ModelForge, start_time: datetime):
     @dt_router.post("/clear-cache")
     def clear_cache():
         """Clear and reload all metadata caches"""
         try:
-            # 
-            return {
-                "status": "success", 
-                "message": "Cache cleared and reloaded"
-            }
+            #
+            return {"status": "success", "message": "Cache cleared and reloaded"}
         except Exception as e:
-            return {
-                "status": "error", 
-                "message": str(e)
-            }
+            return {"status": "error", "message": str(e)}
+
 
 def ping(dt_router: APIRouter):
     @dt_router.get("/ping", status_code=200)

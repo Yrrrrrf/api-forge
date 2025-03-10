@@ -12,6 +12,7 @@ from forge.tools.sql_mapping import ArrayType, get_eq_type
 
 # ? Metadata for some function ---------------------------------------------------
 
+
 # ?.todo: Add some way to generalize this to more databases than just PostgreSQL
 class ObjectType(str, Enum):
     FUNCTION = "function"
@@ -20,14 +21,17 @@ class ObjectType(str, Enum):
     AGGREGATE = "aggregate"
     WINDOW = "window"
 
+
 class FunctionVolatility(str, Enum):
     IMMUTABLE = "IMMUTABLE"
     STABLE = "STABLE"
     VOLATILE = "VOLATILE"
 
+
 class SecurityType(str, Enum):
     DEFINER = "SECURITY DEFINER"
     INVOKER = "SECURITY INVOKER"
+
 
 class FunctionType(str, Enum):
     SCALAR = "scalar"
@@ -36,6 +40,7 @@ class FunctionType(str, Enum):
     AGGREGATE = "aggregate"
     WINDOW = "window"
 
+
 class FunctionParameter(BaseModel):
     name: str
     type: str
@@ -43,10 +48,8 @@ class FunctionParameter(BaseModel):
     default_value: Optional[Any] = None
     mode: str = "IN"  # IN, OUT, INOUT, VARIADIC
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        arbitrary_types_allowed=True
-    )
+    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
+
 
 class FunctionMetadata(BaseModel):
     schema: str
@@ -60,10 +63,7 @@ class FunctionMetadata(BaseModel):
     is_strict: bool
     description: Optional[str] = None
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        arbitrary_types_allowed=True
-    )
+    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
 
     def __str__(self) -> str:
         """Return unformatted string representation of the function."""
@@ -73,67 +73,74 @@ class FunctionMetadata(BaseModel):
     def __repr__(self) -> str:
         """Return formatted string representation with ANSI colors."""
         lines = []
-        
+
         # Function header with type and name
         fn_type = green(self.type.value.upper())
         fn_name = f"{cyan(self.schema)}.{bold(cyan(self.name))}"
-        
+
         # Handle functions with no parameters differently
         if not self.parameters:
             return_signature = ")"
-            if self.return_type and self.return_type != 'void':
+            if self.return_type and self.return_type != "void":
                 return_signature += f" → {yellow(self.return_type)}"
-            
+
             signature_line = f"\t{fn_type}  {fn_name}({return_signature}"
             lines.append(signature_line)
-            
+
             if self.description:
                 desc_line = f"\t{dim('Description:')} {italic(gray(self.description))}"
                 lines.append(desc_line)
         else:
             # Start of function signature for functions with parameters
             lines.append(f"\t{fn_type}  {fn_name}(")
-            
+
             # Format parameters vertically
             max_param_name_length = max(len(param.name) for param in self.parameters)
-            
+
             # Add each parameter
             for i, param in enumerate(self.parameters):
                 param_name = dim(param.name.ljust(max_param_name_length))
                 param_type = magenta(param.type)
                 param_line = f"\t\t{param_name}  {param_type}"
-                
+
                 if param.has_default:
                     param_line += f" = {dim(str(param.default_value))}"
-                    
+
                 if i < len(self.parameters) - 1:
                     param_line += ","
-                    
+
                 lines.append(param_line)
-            
+
             # Close function signature
             return_signature = ")"
-            if self.return_type and self.return_type != 'void':
+            if self.return_type and self.return_type != "void":
                 return_signature += f" → {yellow(self.return_type)}"
             lines.append(f"\t{return_signature}")
-            
+
             # Add description if available
             if self.description:
-                lines.append(f"\t{dim('Description:')} {italic(gray(self.description))}")
+                lines.append(
+                    f"\t{dim('Description:')} {italic(gray(self.description))}"
+                )
 
         return "\n".join(lines)
+
 
 def load_fn(
     db_dependency: Any,
     include_schemas: List[str],
-) -> Tuple[Dict[str, FunctionMetadata], Dict[str, FunctionMetadata], Dict[str, FunctionMetadata]]:
+) -> Tuple[
+    Dict[str, FunctionMetadata],
+    Dict[str, FunctionMetadata],
+    Dict[str, FunctionMetadata],
+]:
     """
     Discovers database functions, procedures, and triggers and returns them in separate dictionaries.
-    
+
     Args:
         db_dependency: Database dependency function
         include_schemas: List of schemas to include
-        
+
     Returns:
         Tuple of three dictionaries (functions, procedures, triggers), each mapping
         'schema.name' to FunctionMetadata
@@ -142,7 +149,7 @@ def load_fn(
     function_cache: Dict[str, FunctionMetadata] = {}
     procedure_cache: Dict[str, FunctionMetadata] = {}
     trigger_cache: Dict[str, FunctionMetadata] = {}
-    
+
     query = """
         WITH function_info AS (
             SELECT 
@@ -221,12 +228,12 @@ def load_fn(
         SELECT * FROM function_info
         ORDER BY schema, name;
     """
-    
+
     def _get_volatility(volatility_char: str) -> FunctionVolatility:
         return {
-            'i': FunctionVolatility.IMMUTABLE,
-            's': FunctionVolatility.STABLE,
-            'v': FunctionVolatility.VOLATILE
+            "i": FunctionVolatility.IMMUTABLE,
+            "s": FunctionVolatility.STABLE,
+            "v": FunctionVolatility.VOLATILE,
         }.get(volatility_char, FunctionVolatility.VOLATILE)
 
     def _determine_function_type(row: Any) -> FunctionType:
@@ -234,26 +241,26 @@ def load_fn(
             return FunctionType.SET_RETURNING
         if "TABLE" in (row.return_type or ""):
             return FunctionType.TABLE
-        if row.kind == 'a':
+        if row.kind == "a":
             return FunctionType.AGGREGATE
-        if row.kind == 'w':
+        if row.kind == "w":
             return FunctionType.WINDOW
         return FunctionType.SCALAR
 
     def _parse_parameters(args_str: str) -> List[FunctionParameter]:
         """Parse function/procedure parameters from PostgreSQL argument string.
-        
+
         Handles both formats:
         - Function: "param_name param_type"
         - Procedure: "IN/OUT param_name param_type"
         """
         if not args_str:
             return []
-        
+
         parameters = []
         for arg in args_str.split(", "):
             parts = arg.split()
-            
+
             # Handle different parameter formats
             if parts[0].upper() in ("IN", "OUT", "INOUT", "VARIADIC"):
                 # Procedure format: "IN param_name param_type"
@@ -265,45 +272,44 @@ def load_fn(
                 mode = "IN"  # Default mode
                 param_name = parts[0]
                 param_type = " ".join(parts[1:])
-            
-            parameters.append(FunctionParameter(
-                name=param_name,
-                type=param_type,
-                mode=mode
-            ))
-        
+
+            parameters.append(
+                FunctionParameter(name=param_name, type=param_type, mode=mode)
+            )
+
         return parameters
 
     with next(db_dependency()) as db:
-        result = db.execute(
-            text(query),
-            {"schemas": include_schemas}
-        )
-        
+        result = db.execute(text(query), {"schemas": include_schemas})
+
         for row in result:
-                
             fn_type = _determine_function_type(row)
             parameters = _parse_parameters(row.arguments)
-            
+
             metadata = FunctionMetadata(
                 schema=row.schema,
                 name=row.name,
-                return_type=row.return_type if row.return_type else 'void',
+                return_type=row.return_type if row.return_type else "void",
                 parameters=parameters,
                 type=fn_type,
                 object_type=ObjectType(row.object_type),
                 volatility=_get_volatility(row.volatility),
-                security_type=SecurityType.DEFINER if row.security_definer else SecurityType.INVOKER,
+                security_type=SecurityType.DEFINER
+                if row.security_definer
+                else SecurityType.INVOKER,
                 is_strict=row.is_strict,
-                description=row.description
+                description=row.description,
             )
-            
+
             # Categorize based on object_type
             match row.object_type:
-                case 'trigger': trigger_cache[f"{row.schema}.{row.name}"] = metadata
-                case 'procedure': procedure_cache[f"{row.schema}.{row.name}"] = metadata
-                case 'function' : function_cache[f"{row.schema}.{row.name}"] = metadata
-                case _: 
+                case "trigger":
+                    trigger_cache[f"{row.schema}.{row.name}"] = metadata
+                case "procedure":
+                    procedure_cache[f"{row.schema}.{row.name}"] = metadata
+                case "function":
+                    function_cache[f"{row.schema}.{row.name}"] = metadata
+                case _:
                     # todo: Add support for other object types
                     raise ValueError(f"Unknown object type: {row.object_type}")
 
@@ -312,21 +318,21 @@ def load_fn(
 
 class FunctionBase(BaseModel):
     """Base class for function models"""
+
     model_config = ConfigDict(
-        from_attributes=True,
-        populate_by_name=True,
-        arbitrary_types_allowed=True
+        from_attributes=True, populate_by_name=True, arbitrary_types_allowed=True
     )
+
 
 def _parse_table_return_type(return_type: str) -> Dict[str, Tuple[Type, Any]]:
     """Parse TABLE and SETOF return types into field definitions."""
     fields = {}
-    
+
     if "TABLE" in return_type:
         # Strip 'TABLE' and parentheses
         columns_str = return_type.replace("TABLE", "").strip("()").strip()
         columns = [col.strip() for col in columns_str.split(",")]
-        
+
         for column in columns:
             name, type_str = column.split(" ", 1)
             field_type = get_eq_type(type_str)
@@ -334,8 +340,9 @@ def _parse_table_return_type(return_type: str) -> Dict[str, Tuple[Type, Any]]:
             if isinstance(field_type, ArrayType):
                 field_type = List[field_type.item_type]
             fields[name] = (field_type, ...)
-                
+
     return fields
+
 
 def create_fn_models(
     fn_metadata: FunctionMetadata,
@@ -355,21 +362,19 @@ def create_fn_models(
     input_fields = {}
     for param in fn_metadata.parameters:
         field_type = get_eq_type(param.type)
-        
+
         # Handle array types
         if isinstance(field_type, ArrayType):
             field_type = List[field_type.item_type]
-            
+
         input_fields[param.name] = (
             field_type if not param.has_default else Optional[field_type],
-            Field(default=param.default_value if param.has_default else ...)
+            Field(default=param.default_value if param.has_default else ...),
         )
 
     # Create input model
     FunctionInputModel = create_model(
-        f"Function_{fn_metadata.name}_Input",
-        __base__=FunctionBase,
-        **input_fields
+        f"Function_{fn_metadata.name}_Input", __base__=FunctionBase, **input_fields
     )
 
     # Generate output model fields based on function type
@@ -385,12 +390,11 @@ def create_fn_models(
 
     # Create output model
     FunctionOutputModel = create_model(
-        f"Function_{fn_metadata.name}_Output",
-        __base__=FunctionBase,
-        **output_fields
+        f"Function_{fn_metadata.name}_Output", __base__=FunctionBase, **output_fields
     )
 
     return FunctionInputModel, FunctionOutputModel, is_set
+
 
 def gen_fn_route(
     fn_metadata: FunctionMetadata,  # Pass the function cache
@@ -404,32 +408,36 @@ def gen_fn_route(
 
     match fn_metadata.object_type:
         case ObjectType.PROCEDURE:
+
             @router.post(
                 f"/proc/{fn_metadata.name}",
                 response_model=None,
                 summary=f"Execute {fn_metadata.name} procedure",
-                description=fn_metadata.description or f"Execute the {fn_metadata.name} procedure"
+                description=fn_metadata.description
+                or f"Execute the {fn_metadata.name} procedure",
             )
             async def execute_procedure(
-                params: FunctionInputModel,
-                db: Session = Depends(db_dependency)
+                params: FunctionInputModel, db: Session = Depends(db_dependency)
             ):
                 return _execute_proc(
                     db=db,
                     params=params,
                     fn_name=fn_metadata.name,
-                    schema=fn_metadata.schema
+                    schema=fn_metadata.schema,
                 )
         case ObjectType.FUNCTION:
+
             @router.post(
                 f"/fn/{fn_metadata.name}",
-                response_model=List[FunctionOutputModel] if is_set else FunctionOutputModel,
+                response_model=List[FunctionOutputModel]
+                if is_set
+                else FunctionOutputModel,
                 summary=f"Execute {fn_metadata.name} function",
-                description=fn_metadata.description or f"Execute the {fn_metadata.name} function"
+                description=fn_metadata.description
+                or f"Execute the {fn_metadata.name} function",
             )
             async def execute_function(
-                params: FunctionInputModel,
-                db: Session = Depends(db_dependency)
+                params: FunctionInputModel, db: Session = Depends(db_dependency)
             ):
                 return _execute_fn(
                     db=db,
@@ -438,24 +446,27 @@ def gen_fn_route(
                     schema=fn_metadata.schema,
                     output_model=FunctionOutputModel,
                     is_set=is_set,
-                    is_scalar=is_scalar
+                    is_scalar=is_scalar,
                 )
-        case ObjectType.TRIGGER: print("Trigger functions not yet supported")
-        case ObjectType.AGGREGATE: print("Aggregate functions not yet supported")
-        case ObjectType.WINDOW: print("Window functions not yet supported")
-        case _: print("Unknown object type")
+        case ObjectType.TRIGGER:
+            print("Trigger functions not yet supported")
+        case ObjectType.AGGREGATE:
+            print("Aggregate functions not yet supported")
+        case ObjectType.WINDOW:
+            print("Window functions not yet supported")
+        case _:
+            print("Unknown object type")
+
 
 def _execute_proc(
-    db: Session,
-    params: BaseModel,
-    fn_name: str,
-    schema: str
+    db: Session, params: BaseModel, fn_name: str, schema: str
 ) -> Dict[str, str]:
     """Execute a stored procedure."""
     param_list = [f":{p}" for p in params.model_fields.keys()]
     query = f"CALL {schema}.{fn_name}({', '.join(param_list)})"
     db.execute(text(query), params.model_dump())
     return {"status": "success"}
+
 
 def _execute_fn(
     db: Session,
@@ -464,7 +475,7 @@ def _execute_fn(
     schema: str,
     output_model: Type[BaseModel],
     is_set: bool = False,
-    is_scalar: bool = False
+    is_scalar: bool = False,
 ) -> Union[List[BaseModel], BaseModel]:
     """Execute a database function."""
     param_list = [f":{p}" for p in params.model_fields.keys()]
@@ -474,10 +485,10 @@ def _execute_fn(
     if is_set:
         records = result.fetchall()
         return [output_model.model_validate(dict(r._mapping)) for r in records]
-    
+
     record = result.fetchone()
     if is_scalar:
         transformed_data = {"result": list(record._mapping.values())[0]}
         return output_model.model_validate(transformed_data)
-    
+
     return output_model.model_validate(dict(record._mapping))

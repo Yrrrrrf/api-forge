@@ -3,20 +3,17 @@ from setuptools import setup, find_packages
 setup(
     # Package details
     name="api-forge",
-    version="0.0.12",
+    version="0.1.0",
     description="A package for generating FastAPI CRUD operations and routes",
     url="https://github.com/Yrrrrrf/api-forge",
     python_requires=">=3.10",
-
     # Author details
     author="Yrrrrrf",
     author_email="fernandorezacampos@gmail.com",
-
     # Package structure
     packages=find_packages(where="src"),  # Find packages in the src directory
-    package_dir={"": "src"},            # Root package is in the src directory
+    package_dir={"": "src"},  # Root package is in the src directory
     # package_data={"": ["docs/images/*.svg"]},  # Include images in the package
-
     install_requires=[  # Add dependencies (install_requires)
         "fastapi>=0.111.0",  # FastAPI framework
         "pydantic>=2.7.1",  # fastapi dependency (data validation)
@@ -37,7 +34,9 @@ setup(
     license="MIT",
     classifiers=[
         # "3 - Alpha", "4 - Beta" or "5 - Production/Stable"
-        "Development Status :: 3 - Alpha",
+        # 6 - Mature (this means that the package is not actively developed)
+        # 7 - Inactive
+        "Development Status :: 7 - Inactive",  # This triggers the yellow warning
         "Intended Audience :: Developers",
         # Specify the Python versions you support
         "Programming Language :: Python :: 3.10",
